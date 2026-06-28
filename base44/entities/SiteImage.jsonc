@@ -1,0 +1,38 @@
+{
+  "name": "SiteImage",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique identifier for this image slot"
+    },
+    "page": {
+      "type": "string",
+      "enum": [
+        "home",
+        "products",
+        "howitworks",
+        "shop"
+      ],
+      "description": "Which page this image belongs to"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable label shown in admin"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Image URL"
+    },
+    "alt_text": {
+      "type": "string",
+      "description": "Alt text for accessibility"
+    }
+  },
+  "required": [
+    "key",
+    "page",
+    "label",
+    "image_url"
+  ]
+}

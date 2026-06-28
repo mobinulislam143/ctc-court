@@ -1,0 +1,41 @@
+{
+  "name": "DiscountCode",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "The discount code (uppercase)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Internal label for this code"
+    },
+    "discount_type": {
+      "type": "string",
+      "enum": [
+        "percentage",
+        "fixed"
+      ],
+      "description": "Percentage off or fixed dollar amount off"
+    },
+    "discount_value": {
+      "type": "number",
+      "description": "Amount: percent (e.g. 10 = 10%) or fixed dollars (e.g. 100 = $100 off)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this code is currently usable"
+    },
+    "times_used": {
+      "type": "number",
+      "default": 0,
+      "description": "How many times this code has been applied"
+    }
+  },
+  "required": [
+    "code",
+    "discount_type",
+    "discount_value"
+  ]
+}

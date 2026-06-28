@@ -1,0 +1,102 @@
+{
+  "name": "CourtDesign",
+  "type": "object",
+  "properties": {
+    "court_type": {
+      "type": "string",
+      "enum": [
+        "basketball_full",
+        "basketball_half",
+        "basketball_key",
+        "basketball_custom",
+        "pickleball_single",
+        "pickleball_dual",
+        "pickleball_custom",
+        "multi_sport",
+        "garage",
+        "custom"
+      ],
+      "description": "Type of court template"
+    },
+    "width_ft": {
+      "type": "number",
+      "description": "Width in feet"
+    },
+    "length_ft": {
+      "type": "number",
+      "description": "Length in feet"
+    },
+    "total_sqft": {
+      "type": "number",
+      "description": "Total square footage"
+    },
+    "tile_count": {
+      "type": "number",
+      "description": "Number of tiles needed"
+    },
+    "waste_factor": {
+      "type": "number",
+      "description": "Waste percentage (0-10)"
+    },
+    "colors": {
+      "type": "object",
+      "description": "Color configuration for zones"
+    },
+    "lines_config": {
+      "type": "object",
+      "description": "Line settings (basketball, pickleball, colors)"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Uploaded logo URL"
+    },
+    "logo_config": {
+      "type": "object",
+      "description": "Logo placement, scale, rotation"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "outdoor",
+        "indoor",
+        "garage"
+      ],
+      "description": "Court environment type"
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "materials_only",
+        "full_installation"
+      ],
+      "description": "Purchase package"
+    },
+    "add_ons": {
+      "type": "object",
+      "description": "Selected add-ons (ramps, lines, logo)"
+    },
+    "estimated_price": {
+      "type": "number",
+      "description": "Calculated price estimate"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "quoted",
+        "ordered"
+      ],
+      "default": "draft"
+    },
+    "preview_image": {
+      "type": "string",
+      "description": "Generated preview image URL"
+    }
+  },
+  "required": [
+    "court_type",
+    "width_ft",
+    "length_ft"
+  ]
+}

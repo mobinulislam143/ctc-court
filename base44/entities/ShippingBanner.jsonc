@@ -1,0 +1,25 @@
+{
+  "name": "ShippingBanner",
+  "type": "object",
+  "properties": {
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show the banner on the site"
+    },
+    "message": {
+      "type": "string",
+      "description": "Custom banner message (leave blank to use auto-generated message)"
+    },
+    "expiry_mode": {
+      "type": "string",
+      "enum": [
+        "end_of_month",
+        "end_of_week"
+      ],
+      "default": "end_of_month",
+      "description": "Auto-update the expiry date each month or each week"
+    }
+  },
+  "required": []
+}

@@ -1,0 +1,31 @@
+{
+  "name": "SiteSettings",
+  "type": "object",
+  "properties": {
+    "contact_email": {
+      "type": "string",
+      "description": "Primary contact email shown in footers"
+    },
+    "facebook_url": {
+      "type": "string",
+      "description": "Facebook page URL"
+    },
+    "instagram_url": {
+      "type": "string",
+      "description": "Instagram profile URL"
+    },
+    "twitter_url": {
+      "type": "string",
+      "description": "Twitter/X profile URL"
+    },
+    "youtube_url": {
+      "type": "string",
+      "description": "YouTube channel URL"
+    },
+    "tiktok_url": {
+      "type": "string",
+      "description": "TikTok profile URL"
+    }
+  },
+  "required": []
+}

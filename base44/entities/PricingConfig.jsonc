@@ -1,0 +1,62 @@
+{
+  "name": "PricingConfig",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Config name (e.g., 'default')"
+    },
+    "price_per_sqft_base": {
+      "type": "number",
+      "description": "Base price per square foot for tiles"
+    },
+    "color_upcharge_per_sqft": {
+      "type": "number",
+      "description": "Additional cost per sqft for premium colors"
+    },
+    "line_package_basketball": {
+      "type": "number",
+      "description": "Basketball lines add-on price"
+    },
+    "line_package_pickleball": {
+      "type": "number",
+      "description": "Pickleball lines add-on price"
+    },
+    "line_package_multi": {
+      "type": "number",
+      "description": "Multi-sport lines add-on price"
+    },
+    "logo_addon_price": {
+      "type": "number",
+      "description": "Logo inlay add-on price"
+    },
+    "edge_ramps_per_linear_ft": {
+      "type": "number",
+      "description": "Edge ramp price per linear foot"
+    },
+    "installation_base_fee": {
+      "type": "number",
+      "description": "Base installation fee"
+    },
+    "installation_per_sqft": {
+      "type": "number",
+      "description": "Installation cost per square foot"
+    },
+    "travel_fee_base": {
+      "type": "number",
+      "description": "Base travel fee"
+    },
+    "travel_fee_per_mile": {
+      "type": "number",
+      "description": "Travel fee per mile beyond base radius"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "price_per_sqft_base"
+  ]
+}

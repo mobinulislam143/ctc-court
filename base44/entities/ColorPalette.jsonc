@@ -1,0 +1,51 @@
+{
+  "name": "ColorPalette",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Palette name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "outdoor",
+        "indoor",
+        "garage",
+        "custom"
+      ],
+      "description": "Recommended environment"
+    },
+    "main_color": {
+      "type": "string",
+      "description": "Primary court color (HEX)"
+    },
+    "border_color": {
+      "type": "string",
+      "description": "Border/out of bounds color (HEX)"
+    },
+    "accent_color": {
+      "type": "string",
+      "description": "Key/accent zone color (HEX)"
+    },
+    "line_color": {
+      "type": "string",
+      "description": "Default line color (HEX)"
+    },
+    "is_premium": {
+      "type": "boolean",
+      "default": false,
+      "description": "Premium color upcharge applies"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "main_color",
+    "border_color",
+    "accent_color"
+  ]
+}

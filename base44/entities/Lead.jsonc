@@ -1,0 +1,90 @@
+{
+  "name": "Lead",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Customer email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Customer phone number"
+    },
+    "city": {
+      "type": "string",
+      "description": "City"
+    },
+    "state": {
+      "type": "string",
+      "description": "State"
+    },
+    "zip_code": {
+      "type": "string",
+      "description": "ZIP code"
+    },
+    "surface_type": {
+      "type": "string",
+      "enum": [
+        "concrete",
+        "asphalt",
+        "wood",
+        "other"
+      ],
+      "description": "Existing surface type"
+    },
+    "indoor_outdoor": {
+      "type": "string",
+      "enum": [
+        "indoor",
+        "outdoor"
+      ],
+      "description": "Installation location"
+    },
+    "timeline": {
+      "type": "string",
+      "enum": [
+        "asap",
+        "30_days",
+        "60_days",
+        "browsing"
+      ],
+      "description": "Purchase timeline"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "design_id": {
+      "type": "string",
+      "description": "Associated court design ID"
+    },
+    "design_summary": {
+      "type": "object",
+      "description": "Snapshot of design at submission"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "contacted",
+        "quote_sent",
+        "won",
+        "lost"
+      ],
+      "default": "new"
+    },
+    "estimated_value": {
+      "type": "number",
+      "description": "Estimated order value"
+    }
+  },
+  "required": [
+    "full_name",
+    "email",
+    "phone"
+  ]
+}
