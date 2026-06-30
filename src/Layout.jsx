@@ -15,7 +15,7 @@ export default function Layout({ children, currentPageName }) {
         `}</style>
       </Helmet>
       {children}
-      <AnniversaryPopup />
+      {currentPageName !== 'Builder' && <AnniversaryPopup />}
     </HelmetProvider>
   );
 }

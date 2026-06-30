@@ -249,7 +249,7 @@ const DEFAULT_DESIGN = {
   colors: {
     main:   '#0061A0',
     border: '#3E464A',
-    accent: '#CB2D3E',
+    accent: '#9CA3AF',
     line:   '#F5F5F5',
   },
   logos:       [null, null, null],
@@ -280,7 +280,7 @@ export default function Builder() {
   const [viewMode, setViewMode]       = useState('3d');
   const [design, setDesign]           = useState(DEFAULT_DESIGN);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [darkMode, setDarkMode]       = useState(true);
+  const [darkMode, setDarkMode]       = useState(false);
   const [metric, setMetric]           = useState(false);
   const [showRuler, setShowRuler]     = useState(false);
   const [localHoopOffset, setLocalHoopOffset] = useState(0);
@@ -405,7 +405,7 @@ export default function Builder() {
           ) : (
             <div
               className="w-full h-full flex items-center justify-center p-8 transition-colors"
-              style={{ backgroundColor: darkMode ? '#0d1f35' : '#d6e4f0' }}
+              style={{ backgroundColor: darkMode ? '#0d1f35' : '#eef2f5' }}
             >
               <CourtPreview
                 width={design.width}
@@ -516,6 +516,26 @@ export default function Builder() {
                   )} />
                 </button>
                 <span className={cn('text-xs font-semibold', metric ? 'text-[#2472B3]' : 'text-gray-400')}>Metric</span>
+              </div>
+
+              {/* Ruler / dimension annotations toggle */}
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Ruler className="h-3.5 w-3.5 text-gray-500" />
+                  <span className="text-xs font-semibold text-gray-600">Show Dimensions</span>
+                </div>
+                <button
+                  onClick={() => setShowRuler(v => !v)}
+                  className={cn(
+                    'relative w-11 h-6 rounded-full transition-colors',
+                    showRuler ? 'bg-[#2472B3]' : 'bg-gray-300'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                    showRuler ? 'translate-x-5' : 'translate-x-0.5'
+                  )} />
+                </button>
               </div>
 
               <DimSlider

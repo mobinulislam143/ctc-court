@@ -6,20 +6,74 @@ import { Maximize2, Minimize2, Lock, Unlock, ZoomIn, ZoomOut, Sun, Moon, Ruler }
 const CTC_LOGO = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6961b0a24b02f1762a276fd5/a8c19e1c9_Untitleddesign4.png';
 
 // ── Tile canvas (procedural, grayscale) ───────────────────────────────────────
-function makeTileCanvas(tileType, size = 256) {
+function makeTileCanvas(tileType, size = 512) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
   const T = size, g = Math.max(4, Math.round(T * 0.055));
   const cx = T/2, cy = T/2, i1 = g, i2 = T - g;
+
+  // ── game_outdoor: Authentic Modular Lattice Tile (Internal Padding) ────────
+  if (tileType === 'game_outdoor') {
+    const CELLS = 8;                         // 8x8 = 64 cells total
+    const PADDING = Math.round(T * 0.014);    // Padding INSIDE the tile border
+    const inner = T - PADDING * 2;           // Usable grid area inside the padding
+    const cell  = inner / CELLS;             // Dimension of each cell
+    const RIB   = Math.max(2, cell * 0.10);  // Thickness of structural ribs
+
+    // ① Background: Deep navy blue void beneath the tile
+    ctx.fillStyle = '#2a4b6c'; 
+    ctx.fillRect(0, 0, T, T);
+
+    ctx.lineCap  = 'square';
+    ctx.lineJoin = 'miter';
+    ctx.strokeStyle = '#3ba3f2';             // Vibrant blue rib surface color
+    ctx.lineWidth   = RIB;
+
+    // ② Draw cell internals (Diagonals + Center Crosses) inside the padded area
+    for (let row = 0; row < CELLS; row++) {
+      for (let col = 0; col < CELLS; col++) {
+        const x0 = PADDING + col * cell;
+        const y0 = PADDING + row * cell;
+        const x1 = x0 + cell;
+        const y1 = y0 + cell;
+        const midX = x0 + cell / 2;
+        const midY = y0 + cell / 2;
+        
+        // 1. Diagonal 'X' Ribs
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke();
+        
+        // 2. Internal Center Cross Ribs (+ shape)
+        ctx.beginPath(); ctx.moveTo(midX, y0); ctx.lineTo(midX, y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x0, midY); ctx.lineTo(x1, midY); ctx.stroke();
+      }
+    }
+
+    // ③ Draw Main Cell Grid Lines (The outer boundaries of the 64 cells)
+    for (let i = 0; i <= CELLS; i++) {
+      const p = PADDING + i * cell;
+      // Vertical grid lines
+      ctx.beginPath(); ctx.moveTo(p, PADDING); ctx.lineTo(p, PADDING + inner); ctx.stroke();
+      // Horizontal grid lines
+      ctx.beginPath(); ctx.moveTo(PADDING, p); ctx.lineTo(PADDING + inner, p); ctx.stroke();
+    }
+
+    // ④ Outer Tile Border: Clean, thin dark separation lines right at the edges (0 to T)
+    // This allows tiles to lock together perfectly while keeping the padding inside.
+    ctx.strokeStyle = '#182e44';
+    ctx.lineWidth   = Math.max(2, T * 0.008);
+    ctx.strokeRect(0, 0, T, T);
+
+    return c;
+  }
+
+  // ── Base for all other tile types ────────────────────────────────────────────
   ctx.fillStyle = '#484848'; ctx.fillRect(0,0,T,T);
   ctx.fillStyle = '#ffffff'; ctx.fillRect(i1,i1,i2-i1,i2-i1);
   ctx.strokeStyle = '#484848';
   ctx.lineWidth = Math.max(2, g*0.9); ctx.lineCap = 'round';
-  if (tileType === 'game_outdoor') {
-    [[cx,i1],[i2,i1],[i2,cy],[i2,i2],[cx,i2],[i1,i2],[i1,cy],[i1,i1]].forEach(([tx,ty])=>{
-      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(tx,ty); ctx.stroke();
-    });
+  if (false) { 
   } else if (tileType === 'active') {
     for(let k=1;k<5;k++){const y=i1+(i2-i1)*k/5;ctx.beginPath();ctx.moveTo(i1,y);ctx.lineTo(i2,y);ctx.stroke();}
   } else if (tileType === 'boost') {
@@ -38,10 +92,10 @@ function makeTileCanvas(tileType, size = 256) {
 }
 
 function makeTileTexture(tileType, cW, cH, renderer) {
-  const canvas = makeTileCanvas(tileType, 256);
+  const canvas = makeTileCanvas(tileType, 512);
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(Math.max(0.1, cW/1.5), Math.max(0.1, cH/1.5));
+  tex.repeat.set(Math.max(0.1, cW/1.0), Math.max(0.1, cH/1.0));
   tex.anisotropy = renderer ? Math.min(renderer.capabilities.getMaxAnisotropy(), 16) : 8;
   tex.generateMipmaps = true;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
@@ -62,36 +116,105 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   ctx.strokeStyle = linesConfig?.color || colors?.line || '#ffffff';
   ctx.lineWidth = Math.max(2, T*0.09);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
   if (courtType && courtType.includes('basketball')) {
     const kW = Math.min(12, width*0.28)*T, kH = Math.min(19, length*0.27)*T;
     const kx = (W-kW)/2, ftR = 6*T, tpR = Math.min(23.75*T, W*0.46);
+    const baskY = H - 5.25*T; // basket position Y in canvas
+
+    // Outer boundary
     ctx.strokeRect(2,2,W-4,H-4);
+
+    // ── Key / Paint ─────────────────────────────────────────────────────
     ctx.strokeRect(kx,H-kH,kW,kH);
+
+    // Lane block markers (tick marks outside the lane on both sides)
+    // NBA positions from baseline: 7', 8', 11', 14' (approximate NCAA: 3',6',9',12')
+    const laneTicksFromBaseline = [3, 6, 9, 12]; // ft
+    const laneTickLen = 0.55 * T;
+    const laneTickW   = Math.max(1.5, T * 0.06);
+    ctx.save();
+    ctx.lineWidth = laneTickW;
+    laneTicksFromBaseline.forEach(d => {
+      const ty = H - d * T;
+      if (ty <= H - kH) return; // only within the key height
+      // Left lane line: tick extends OUTSIDE key (to the left)
+      ctx.beginPath(); ctx.moveTo(kx, ty); ctx.lineTo(kx - laneTickLen, ty); ctx.stroke();
+      // Right lane line: tick extends OUTSIDE key (to the right)
+      ctx.beginPath(); ctx.moveTo(kx + kW, ty); ctx.lineTo(kx + kW + laneTickLen, ty); ctx.stroke();
+    });
+    ctx.restore();
+
+    // Free throw arc (solid top half — above key, into court)
     ctx.beginPath();ctx.arc(W/2,H-kH,ftR,Math.PI,0);ctx.stroke();
+    // Free throw arc (dashed bottom half — inside key)
     ctx.setLineDash([T*0.7,T*0.45]);
     ctx.beginPath();ctx.arc(W/2,H-kH,ftR,0,Math.PI);ctx.stroke();
     ctx.setLineDash([]);
+
+    // 3-point arc
     ctx.beginPath();ctx.arc(W/2,H,tpR,-Math.PI,0);ctx.stroke();
-    ctx.beginPath();ctx.arc(W/2,H-5.25*T,0.75*T,0,Math.PI*2);ctx.stroke();
-    ctx.beginPath();ctx.arc(W/2,H-5.25*T,4*T,-Math.PI,0);ctx.stroke();
+    // 3-point corner straight lines (connect arc to baseline)
+    const tpHalf = Math.min(tpR, W*0.46);
+    const cornerX = Math.sqrt(Math.max(0, tpR*tpR - (H-baskY)*(H-baskY)));
+    if (!isNaN(cornerX) && cornerX < W/2) {
+      // Left corner line from arc tangent to baseline
+      ctx.beginPath();ctx.moveTo(W/2 - cornerX, baskY);ctx.lineTo(W/2 - cornerX, H-2);ctx.stroke();
+      // Right corner line
+      ctx.beginPath();ctx.moveTo(W/2 + cornerX, baskY);ctx.lineTo(W/2 + cornerX, H-2);ctx.stroke();
+    }
+
+    // Basket circle (9" = 0.75ft radius)
+    ctx.beginPath();ctx.arc(W/2,baskY,0.75*T,0,Math.PI*2);ctx.stroke();
+
+    // Restricted area arc (4ft radius from basket center, toward court)
+    ctx.beginPath();ctx.arc(W/2,baskY,4*T,-Math.PI,0);ctx.stroke();
+
+    // Backboard mark (line behind basket, 4" thick = just an outline)
+    const bbW = 6*T; // 6ft wide backboard projection onto court
+    ctx.save(); ctx.lineWidth = Math.max(3, T*0.13);
+    ctx.beginPath();ctx.moveTo(W/2 - bbW/2, H-2);ctx.lineTo(W/2 + bbW/2, H-2);ctx.stroke();
+    ctx.restore();
+
     if (courtType === 'basketball_full') {
+      // Center line
       ctx.beginPath();ctx.moveTo(2,H/2);ctx.lineTo(W-2,H/2);ctx.stroke();
+      // Center circles
       ctx.beginPath();ctx.arc(W/2,H/2,6*T,0,Math.PI*2);ctx.stroke();
       ctx.beginPath();ctx.arc(W/2,H/2,2*T,0,Math.PI*2);ctx.stroke();
+      // Opposite key
       ctx.strokeRect(kx,0,kW,kH);
+      laneTicksFromBaseline.forEach(d => {
+        const ty = d * T;
+        if (ty >= kH) return;
+        ctx.save(); ctx.lineWidth = laneTickW;
+        ctx.beginPath(); ctx.moveTo(kx, ty); ctx.lineTo(kx - laneTickLen, ty); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(kx + kW, ty); ctx.lineTo(kx + kW + laneTickLen, ty); ctx.stroke();
+        ctx.restore();
+      });
       ctx.beginPath();ctx.arc(W/2,kH,ftR,0,Math.PI);ctx.stroke();
       ctx.setLineDash([T*0.7,T*0.45]);
       ctx.beginPath();ctx.arc(W/2,kH,ftR,Math.PI,0);ctx.stroke();
       ctx.setLineDash([]);
       ctx.beginPath();ctx.arc(W/2,0,tpR,0,Math.PI,true);ctx.stroke();
-      ctx.beginPath();ctx.arc(W/2,5.25*T,0.75*T,0,Math.PI*2);ctx.stroke();
-      ctx.beginPath();ctx.arc(W/2,5.25*T,4*T,0,Math.PI,true);ctx.stroke();
+      const baskY2 = 5.25*T;
+      if (!isNaN(cornerX) && cornerX < W/2) {
+        ctx.beginPath();ctx.moveTo(W/2 - cornerX,2);ctx.lineTo(W/2 - cornerX, baskY2);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(W/2 + cornerX,2);ctx.lineTo(W/2 + cornerX, baskY2);ctx.stroke();
+      }
+      ctx.beginPath();ctx.arc(W/2,baskY2,0.75*T,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(W/2,baskY2,4*T,0,Math.PI,true);ctx.stroke();
+      ctx.save(); ctx.lineWidth = Math.max(3, T*0.13);
+      ctx.beginPath();ctx.moveTo(W/2-bbW/2,2);ctx.lineTo(W/2+bbW/2,2);ctx.stroke();
+      ctx.restore();
     }
   }
+
   if (courtType && courtType.includes('pickleball')) {
     ctx.strokeRect(2,2,W-4,H-4);
     const nY=H/2;
-    [[2,nY-7*T,W-2,nY-7*T],[2,nY+7*T,W-2,nY+7*T],[2,nY,W-2,nY],[W/2,nY-7*T,W/2,2],[W/2,nY+7*T,W/2,H-2]].forEach(([x1,y1,x2,y2])=>{
+    [[2,nY-7*T,W-2,nY-7*T],[2,nY+7*T,W-2,nY+7*T],[2,nY,W-2,nY],
+     [W/2,nY-7*T,W/2,2],[W/2,nY+7*T,W/2,H-2]].forEach(([x1,y1,x2,y2])=>{
       ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
     });
   }
@@ -148,10 +271,9 @@ function createNet(rimRadius = 0.75) {
   return g;
 }
 
-// ── Professional basketball hoop (double-arm parallelogram design) ────────────
-// Matches real Megaslam/in-ground systems:
-//   TWO parallel horizontal arms from pole → vertical board bracket.
-//   No diagonal brace — the parallelogram linkage is self-rigid.
+// ── Professional basketball hoop (single-arm pole-mount design) ───────────────
+// One horizontal arm from near the pole top to the board, braced by a
+// diagonal tube down to the pole — matches slim in-ground court systems.
 function buildHoop(scene, zPos, D, hoopOffset = 0, variant = 60) {
   const S = variant === 72 ? 1.1 : 1.0;
   const g = new THREE.Group();
@@ -174,43 +296,37 @@ function buildHoop(scene, zPos, D, hoopOffset = 0, variant = 60) {
   // Pole cap
   makeBox(g, matPole, PW*1.25, 0.18, PW*1.25, 0, PH+0.09, 0);
 
-  // ── Double-arm parallelogram system ───────────────────────────────────────
-  //
-  //  POLE ──────────── UPPER ARM ──────────── [BOARD BRACKET]
-  //       ──────────── LOWER ARM ────────────
-  //
-  // Both arms are IDENTICAL length, PERFECTLY HORIZONTAL, PARALLEL.
-  // No diagonal brace — the bracket at the board end closes the parallelogram.
+  // ── Double-arm parallelogram + diagonal brace ─────────────────────────────
+  //   Upper arm + lower arm (parallel, identical length) from pole to board
+  //   bracket. Diagonal pipe brace from lower pole to upper-arm tip.
+  const ARM_W   = PW * 0.72;
+  const ARM_LEN = 4.8;
+  const ARM_Z   = D * ARM_LEN;
+  const UA_Y = PH - 1.8;        // upper arm center Y (near pole top)
+  const LA_Y = UA_Y - 2.5;      // lower arm center Y
 
-  const ARM_W   = PW * 0.88;  // arm cross-section (square tubing)
-  const ARM_LEN = 4.8;        // arm length (ft, how far arm reaches toward court)
-  const ARM_Z   = D * ARM_LEN;// arm tip Z (local group space)
-
-  // Upper arm — exits near top of pole
-  const UA_Y = PH - 1.0;     // upper arm center Y
+  // Upper arm
   makeBox(g, matPole, ARM_W, ARM_W, ARM_LEN, 0, UA_Y, D*ARM_LEN/2);
-
-  // Lower arm — exits ~2.8 ft below upper arm
-  const LA_Y = UA_Y - 2.8;   // lower arm center Y
+  // Lower arm
   makeBox(g, matPole, ARM_W, ARM_W, ARM_LEN, 0, LA_Y, D*ARM_LEN/2);
+  // Diagonal cable brace: lower pole → upper arm tip
+  makePipe(g, matPole,
+    new THREE.Vector3(0, LA_Y - 2.2, 0),
+    new THREE.Vector3(0, UA_Y, ARM_Z),
+    ARM_W * 0.30);
+  // Pole-side gussets
+  makeBox(g, matPole, PW*1.5, 0.14, ARM_W, 0, UA_Y, D*0.25);
+  makeBox(g, matPole, PW*1.5, 0.14, ARM_W, 0, LA_Y, D*0.25);
 
-  // Pole-side connection plates (horizontal gussets where arms bolt to pole)
-  makeBox(g, matPole, PW*1.7, 0.18, ARM_W*1.0, 0, UA_Y, D*0.28);
-  makeBox(g, matPole, PW*1.7, 0.18, ARM_W*1.0, 0, LA_Y, D*0.28);
-  // Side bolt nubs (cosmetic, visible on pole face)
-  [-PW*0.7, PW*0.7].forEach(x => {
-    makeBox(g, matPole, 0.10, 0.10, 0.10, x, UA_Y, D*0.28);
-    makeBox(g, matPole, 0.10, 0.10, 0.10, x, LA_Y, D*0.28);
-  });
+  // ── Board bracket (vertical column connecting both arm tips) ─────────────
+  const BB_H = (UA_Y + ARM_W/2) - (LA_Y - ARM_W/2);
+  makeBox(g, matPole, ARM_W*0.9, BB_H, ARM_W*0.9, 0, (UA_Y+LA_Y)/2, ARM_Z);
+  makeBox(g, matPole, ARM_W*1.2, 0.14, ARM_W*1.2, 0, UA_Y, ARM_Z);
+  makeBox(g, matPole, ARM_W*1.2, 0.14, ARM_W*1.2, 0, LA_Y, ARM_Z);
 
-  // ── Board bracket (vertical column at arm tips) ───────────────────────────
-  // Connects upper arm tip to lower arm tip — closes the parallelogram.
-  const BB_H = (UA_Y + ARM_W/2) - (LA_Y - ARM_W/2); // full span incl. arm thickness
-  makeBox(g, matPole, ARM_W*0.95, BB_H, ARM_W*0.95, 0, (UA_Y+LA_Y)/2, ARM_Z);
-
-  // Small end caps where arms meet bracket
-  makeBox(g, matPole, ARM_W*1.3, 0.18, ARM_W*1.3, 0, UA_Y, ARM_Z);
-  makeBox(g, matPole, ARM_W*1.3, 0.18, ARM_W*1.3, 0, LA_Y, ARM_Z);
+  // ── Camera / light nub at very top of pole ───────────────────────────────
+  makeBox(g, matPole, PW*0.6, 0.6, PW*0.6, 0, PH+0.4, 0);
+  makeBox(g, matPole, PW*1.2, 0.22, PW*1.6, 0, PH+0.82, 0);
 
   // ── Backboard ─────────────────────────────────────────────────────────────
   const RIM_H = 10.0;          // standard 10 ft rim height
@@ -242,7 +358,7 @@ function buildHoop(scene, zPos, D, hoopOffset = 0, variant = 60) {
 
   // ── Rim assembly ──────────────────────────────────────────────────────────
   const RIM_R = 0.75;             // 18" standard
-  const RIM_Z = BZ + D * 1.5;    // rim extends from board FRONT face toward court
+  const RIM_Z = BZ + D * 2.2;    // rim extends from board FRONT face toward court
 
   // J-bracket: horizontal bar from board front face to rim
   makeBox(g, matPole, PW*0.85, 0.15, 1.6, 0, RIM_H+0.08, BZ+D*0.82);
@@ -361,6 +477,189 @@ function buildGameLight(scene, x, z) {
   scene.add(g);
 }
 
+// ── Dimension annotation system ───────────────────────────────────────────────
+function makeDimLabel(text) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSize = 26;
+  ctx.font = `bold ${fontSize}px monospace`;
+  const tw = Math.ceil(ctx.measureText(text).width);
+  const px = 12, py = 7;
+  canvas.width  = tw + px * 2;
+  canvas.height = fontSize + py * 2;
+  // White pill background
+  ctx.fillStyle = 'rgba(255,255,255,0.93)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(0.75, 0.75, canvas.width - 1.5, canvas.height - 1.5);
+  // Text
+  ctx.fillStyle = '#111111';
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const sp = new THREE.Sprite(mat);
+  sp.renderOrder = 999;
+  const aspect = canvas.width / canvas.height;
+  sp.scale.set(aspect * 2.5, 2.5, 1);
+  return sp;
+}
+
+function makeDimAnnotation(group, pA, pB, label, perpAxis, offsetDist) {
+  const lmat = new THREE.LineBasicMaterial({ color: 0x111111, depthTest: false, transparent: true, opacity: 0.88 });
+  const perp  = perpAxis.clone().normalize().multiplyScalar(offsetDist);
+  const dA = pA.clone().add(perp);
+  const dB = pB.clone().add(perp);
+
+  const seg = (a, b) => {
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([a.clone(), b.clone()]), lmat
+    );
+    line.renderOrder = 998;
+    group.add(line);
+  };
+
+  // Extension lines (small gap, then run from measurement point to dim line)
+  const extDir = perpAxis.clone().normalize();
+  seg(pA.clone().addScaledVector(extDir, offsetDist * 0.08), dA);
+  seg(pB.clone().addScaledVector(extDir, offsetDist * 0.08), dB);
+
+  // Main dimension line
+  seg(dA, dB);
+
+  // Tick marks at endpoints (perpendicular to direction)
+  const mainDir = new THREE.Vector3().subVectors(dB, dA).normalize();
+  const tickPerp = new THREE.Vector3(-mainDir.z, 0, mainDir.x).multiplyScalar(0.38);
+  [dA, dB].forEach(pt => seg(pt.clone().sub(tickPerp), pt.clone().add(tickPerp)));
+
+  // Arrow heads (V pointing inward, toward center)
+  const upa = new THREE.Vector3(0, 1, 0);
+  const arrowLen = 0.48;
+  const makeArrow = (pos, dir) => {
+    const v1 = dir.clone().applyAxisAngle(upa,  0.38).multiplyScalar(arrowLen);
+    const v2 = dir.clone().applyAxisAngle(upa, -0.38).multiplyScalar(arrowLen);
+    seg(pos, pos.clone().add(v1));
+    seg(pos, pos.clone().add(v2));
+  };
+  makeArrow(dA, mainDir.clone());           // at dA, pointing toward dB
+  makeArrow(dB, mainDir.clone().negate());  // at dB, pointing toward dA
+
+  // Label sprite at midpoint, pushed slightly further out
+  const mid = dA.clone().lerp(dB, 0.5);
+  mid.addScaledVector(perpAxis.clone().normalize(), 0.7).setY(mid.y + 0.25);
+  const sp = makeDimLabel(label);
+  sp.position.copy(mid);
+  group.add(sp);
+}
+
+function buildDimensionAnnotations(scene, width, length, courtType, metric) {
+  const g = new THREE.Group();
+  const y = 0.46; // just above court surface
+
+  const fmt = (ft) => {
+    if (metric) return `${(ft * 0.3048).toFixed(1)}m`;
+    const f = Math.floor(ft);
+    const i = Math.round((ft - f) * 12);
+    return i === 0 ? `${f}'` : `${f}' ${i}"`;
+  };
+
+  const W = width, L = length;
+
+  // ── Overall court perimeter ─────────────────────────────────────────────
+  // Width (along near baseline, offset outward in -Z)
+  makeDimAnnotation(g,
+    new THREE.Vector3(-W/2, y, -L/2),
+    new THREE.Vector3( W/2, y, -L/2),
+    fmt(W), new THREE.Vector3(0, 0, -1), 5.2
+  );
+  // Length (along right sideline, offset outward in +X)
+  makeDimAnnotation(g,
+    new THREE.Vector3(W/2, y, -L/2),
+    new THREE.Vector3(W/2, y,  L/2),
+    fmt(L), new THREE.Vector3(1, 0, 0), 5.2
+  );
+
+  if (courtType && courtType.includes('basketball')) {
+    const kW = Math.min(12, W * 0.28);
+    const kH = Math.min(19, L * 0.27);
+    const z0 = -L / 2; // baseline Z
+    const ftR = 6;     // free throw circle radius
+    const tpR = Math.min(23.75, W * 0.46); // 3-point radius
+
+    // Key width at top of paint
+    makeDimAnnotation(g,
+      new THREE.Vector3(-kW/2, y, z0 + kH),
+      new THREE.Vector3( kW/2, y, z0 + kH),
+      fmt(kW), new THREE.Vector3(0, 0, 1), 2.5
+    );
+    // Key height (paint length)
+    makeDimAnnotation(g,
+      new THREE.Vector3(kW/2, y, z0),
+      new THREE.Vector3(kW/2, y, z0 + kH),
+      fmt(kH), new THREE.Vector3(1, 0, 0), 2.5
+    );
+    // Free throw distance from baseline (key height + ft radius = ft line)
+    makeDimAnnotation(g,
+      new THREE.Vector3(-kW/2 - 1.5, y, z0),
+      new THREE.Vector3(-kW/2 - 1.5, y, z0 + kH + ftR),
+      fmt(kH + ftR), new THREE.Vector3(-1, 0, 0), 1.2
+    );
+
+    // 3-point arc label (positioned along the arc)
+    const tpSp = makeDimLabel(`3pt: ${fmt(tpR)}`);
+    tpSp.position.set(-tpR * 0.68, y + 0.4, z0 + 5.25 + tpR * 0.65);
+    g.add(tpSp);
+
+    // Basket height label
+    const rimSp = makeDimLabel(`Rim ht: 10'`);
+    rimSp.position.set(0, y + 0.4, z0 - 2.2);
+    g.add(rimSp);
+
+    // Overhang label (basket to backboard = 4")
+    const ovSp = makeDimLabel(`Overhang: 4"`);
+    ovSp.position.set(kW/2 + 3.2, y + 0.4, z0 + 0.5);
+    g.add(ovSp);
+
+    // Corner 3-point distance
+    const cornerDist = Math.min(22, W / 2 - 3);
+    const cSp = makeDimLabel(`Corner: ${fmt(cornerDist)}`);
+    cSp.position.set(-W/2 + 3.5, y + 0.4, z0 + 1.5);
+    g.add(cSp);
+
+    // Restricted area
+    const raSp = makeDimLabel(`RA: 4'`);
+    raSp.position.set(kW/2 + 2.2, y + 0.4, z0 + 5.5);
+    g.add(raSp);
+
+    if (courtType === 'basketball_full') {
+      // Center circle label
+      const ccSp = makeDimLabel(`Center circle: ${fmt(6)} R`);
+      ccSp.position.set(W/2 + 4.5, y + 0.4, 0);
+      g.add(ccSp);
+    }
+  }
+
+  if (courtType && courtType.includes('pickleball')) {
+    const z0 = -L / 2;
+    const kitSp = makeDimLabel(`Kitchen: 7'`);
+    kitSp.position.set(W/2 + 3.5, y + 0.4, z0 + 7);
+    g.add(kitSp);
+    makeDimAnnotation(g,
+      new THREE.Vector3(W/2, y, z0),
+      new THREE.Vector3(W/2, y, 0),
+      fmt(L / 2), new THREE.Vector3(1, 0, 0), 4
+    );
+  }
+
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+
 // ── Ruler overlay component ───────────────────────────────────────────────────
 function RulerOverlay({ width, length, metric, darkMode }) {
   const toM  = ft => (ft * 0.3048).toFixed(1);
@@ -467,6 +766,12 @@ export default function Court3D({
     });
   }, [tileType]);
 
+  // Fast: ruler / dimension annotations toggle
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (s.dimGroup) s.dimGroup.visible = showRuler;
+  }, [showRuler]);
+
   // Fast: lines update only
   useEffect(() => {
     const s = sceneRef.current;
@@ -504,12 +809,12 @@ export default function Court3D({
       sceneRef.current = {};
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [width, length, courtType, hoopVariant, hoopOffset, bothEnds, showNetProtect, showGameLight, darkMode]);
+  }, [width, length, courtType, hoopVariant, hoopOffset, bothEnds, showNetProtect, showGameLight, darkMode, metric]);
 
   function buildScene(mount) {
     const cW = Math.max(mount.clientWidth  || 0, 400);
     const cH = Math.max(mount.clientHeight || 0, 300);
-    const bg  = darkMode ? 0x0d1117 : 0xcde5f5;
+    const bg  = darkMode ? 0x0d1117 : 0xeef2f5;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(bg);
@@ -533,7 +838,7 @@ export default function Court3D({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 2, 0); controls.enableDamping = true; controls.dampingFactor = 0.06;
     controls.minPolarAngle = 0.05; controls.maxPolarAngle = Math.PI/2.05;
-    controls.minDistance = 8; controls.maxDistance = cd*4;
+    controls.minDistance = 1; controls.maxDistance = cd*4;
     controls.autoRotate = autoRotate; controls.autoRotateSpeed = 1.5;
 
     // Lights
@@ -548,17 +853,14 @@ export default function Court3D({
     if (!darkMode) scene.add(new THREE.HemisphereLight(0x87ceeb,0x4a7c59,0.4));
 
     // Ground
-    const gnd = new THREE.Mesh(new THREE.PlaneGeometry(1500,1500), new THREE.MeshLambertMaterial({color:darkMode?0x080c10:0x6a9e6a}));
+    const gnd = new THREE.Mesh(new THREE.PlaneGeometry(1500,1500), new THREE.MeshLambertMaterial({color:darkMode?0x080c10:0xc8ccc8}));
     gnd.rotation.x=-Math.PI/2; gnd.position.y=-0.86; gnd.receiveShadow=true; scene.add(gnd);
 
-    // Border
+    // Flat ground surround (no raised border frame — boundary is the painted court line)
     const borderMat = new THREE.MeshStandardMaterial({color:new THREE.Color(colors?.border||'#3E464A'), roughness:0.9});
-    const border = new THREE.Mesh(new THREE.BoxGeometry(width+18,0.86,length+18), borderMat);
-    border.position.y=-0.43; border.receiveShadow=true; scene.add(border);
-    [[width+18,0.26,1.5,0,0.13,(length+9)/2+0.6],[width+18,0.26,1.5,0,0.13,-(length+9)/2-0.6],
-     [1.5,0.26,length+18,(width+9)/2+0.6,0.13,0],[1.5,0.26,length+18,-(width+9)/2-0.6,0.13,0]].forEach(([w,h,d,x,y,z])=>{
-      const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),borderMat); m.position.set(x,y,z); scene.add(m);
-    });
+    const apronMat  = new THREE.MeshStandardMaterial({color:new THREE.Color(darkMode?0x12181d:0xd4d4cc), roughness:0.95});
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(width+14,0.18,length+14), apronMat);
+    apron.position.y=-0.09; apron.receiveShadow=true; scene.add(apron);
 
     // Court surface
     const tileTex = makeTileTexture(tileType, width, length, renderer);
@@ -574,12 +876,12 @@ export default function Court3D({
       const kW=Math.min(12,width*0.28), kH=Math.min(19,length*0.27);
       const mkAccent = (zOff) => {
         const acTex=makeTileTexture(tileType,kW,kH,renderer);
-        const mat=new THREE.MeshStandardMaterial({map:acTex,color:new THREE.Color(colors?.accent||'#CB2D3E'),roughness:0.82,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+        const mat=new THREE.MeshStandardMaterial({map:acTex,color:new THREE.Color(colors?.accent||'#9CA3AF'),roughness:0.85,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
         const m=new THREE.Mesh(new THREE.PlaneGeometry(kW,kH),mat);
         m.rotation.x=-Math.PI/2; m.position.set(0,0.383,zOff); scene.add(m); accentMeshes.push(m);
       };
-      mkAccent(-(length/2-kH/2));
-      if (courtType==='basketball_full') mkAccent(length/2-kH/2);
+      mkAccent(length/2-kH/2);
+      if (courtType==='basketball_full') mkAccent(-(length/2-kH/2));
     }
 
     // Lines overlay
@@ -629,6 +931,10 @@ export default function Court3D({
       }
     }
 
+    // Dimension annotations
+    const dimGroup = buildDimensionAnnotations(scene, width, length, courtType, metric);
+    dimGroup.visible = showRuler;
+
     // Resize observer
     const ro = new ResizeObserver(() => {
       const w=mount.clientWidth, h=mount.clientHeight;
@@ -654,7 +960,7 @@ export default function Court3D({
     };
     animate();
 
-    sceneRef.current = {scene,camera,renderer,controls,ro,animId,courtMat,sideMat,borderMat,linesMesh,accentMeshes};
+    sceneRef.current = {scene,camera,renderer,controls,ro,animId,courtMat,sideMat,borderMat,linesMesh,accentMeshes,dimGroup};
     setIsLoading(false);
   }
 
