@@ -6,6 +6,8 @@ import { Maximize2, Minimize2, Lock, Unlock, ZoomIn, ZoomOut, Sun, Moon, Ruler }
 const CTC_LOGO = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6961b0a24b02f1762a276fd5/a8c19e1c9_Untitleddesign4.png';
 
 // ── Tile canvas (procedural, grayscale) ───────────────────────────────────────
+
+// ── Tile canvas (procedural, grayscale) ───────────────────────────────────────
 function makeTileCanvas(tileType, size = 512) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -880,13 +882,14 @@ export default function Court3D({
         const m=new THREE.Mesh(new THREE.PlaneGeometry(kW,kH),mat);
         m.rotation.x=-Math.PI/2; m.position.set(0,0.383,zOff); scene.add(m); accentMeshes.push(m);
       };
-      mkAccent(length/2-kH/2);
-      if (courtType==='basketball_full') mkAccent(-(length/2-kH/2));
+      mkAccent(-(length/2-kH/2));
+      if (courtType==='basketball_full') mkAccent(length/2-kH/2);
     }
 
     // Lines overlay
     const linesCanvas = drawLinesCanvas(width, length, colors, linesConfig, courtType);
     const linesTex = new THREE.CanvasTexture(linesCanvas);
+    linesTex.repeat.set(1, -1); linesTex.offset.set(0, 1);
     linesTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
     const linesMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(width, length),
