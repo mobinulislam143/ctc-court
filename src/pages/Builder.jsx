@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -53,10 +53,10 @@ const fromMetric = m => Math.round(m / 0.3048);
 function Panel({ title, children, defaultOpen = false, checked, onCheck }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-[#1a5999]">
+    <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-[#2472B3] hover:bg-[#1e63a0] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 mb-1 rounded-md border-none bg-[#2472B3] hover:bg-[#1e63a0] transition-colors"
       >
         <div className="flex items-center gap-2">
           {onCheck !== undefined && (
@@ -111,6 +111,9 @@ function SwatchPicker({ label, value, onChange }) {
     </div>
   );
 }
+
+// ─── Logo defaults ────────────────────────────────────────────────────────────
+const DEFAULT_LOGO = { url: null, vertical: 50, horizontal: 50, scale: 3, rotate: 0 };
 
 // ─── Logo upload ──────────────────────────────────────────────────────────────
 function LogoZone({ url, onChange }) {
@@ -252,7 +255,7 @@ const DEFAULT_DESIGN = {
     accent: '#9CA3AF',
     line:   '#F5F5F5',
   },
-  logos:       [null, null, null],
+  logos:       [ {...DEFAULT_LOGO}, {...DEFAULT_LOGO}, {...DEFAULT_LOGO} ],
   activeLogo:  0,
   hoopVariant: 'megaslam60',
   hoopOffset:  0,
@@ -264,6 +267,26 @@ const DEFAULT_DESIGN = {
     tennis:     { enabled: false, size: 'single', orientation: 'portrait', lineColor: '#F5F5F5' },
   },
 };
+
+// Build the starting design based on the ?sport= URL param (from the Court Select page)
+function buildInitialDesign(sport) {
+  const d = JSON.parse(JSON.stringify(DEFAULT_DESIGN));
+  if (sport === 'pickleball') {
+    d.sports.basketball.enabled = false;
+    d.sports.pickleball.enabled = true;
+    d.width = 30; d.length = 60;               // 30×60 surface → 20×44 regulation play
+    d.colors.main = '#2E5A9E';
+  } else if (sport === 'basketball') {
+    d.sports.basketball.enabled = true;
+    d.sports.pickleball.enabled = false;
+    d.width = 30; d.length = 30;               // half court 30'×30'
+  } else if (sport === 'multi' || sport === 'multi_sport') {
+    d.sports.basketball.enabled = true;
+    d.sports.pickleball.enabled = true;
+    d.width = 50; d.length = 84;
+  }
+  return d;
+}
 
 const DEFAULT_PRICING = { price_per_sqft_base: 4.75 };
 
@@ -277,8 +300,9 @@ export default function Builder() {
   });
   const pricing = pricingConfigs[0] || DEFAULT_PRICING;
 
+  const [searchParams] = useSearchParams();
   const [viewMode, setViewMode]       = useState('3d');
-  const [design, setDesign]           = useState(DEFAULT_DESIGN);
+  const [design, setDesign]           = useState(() => buildInitialDesign(searchParams.get('sport')));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode]       = useState(false);
   const [metric, setMetric]           = useState(false);
@@ -312,9 +336,11 @@ export default function Builder() {
   const setC   = p  => setDesign(d => ({ ...d, colors: { ...d.colors, ...p } }));
   const setSp  = (sp, p) => setDesign(d => ({ ...d, sports: { ...d.sports, [sp]: { ...d.sports[sp], ...p } } }));
   const setAcc = p  => setDesign(d => ({ ...d, accessories: { ...d.accessories, ...p } }));
-  const setLogo = (i, url) => setDesign(d => {
-    const logos = [...d.logos]; logos[i] = url; return { ...d, logos };
+  const setLogoField = (i, patch) => setDesign(d => {
+    const logos = d.logos.map((lg, idx) => idx === i ? { ...DEFAULT_LOGO, ...lg, ...patch } : lg);
+    return { ...d, logos };
   });
+  const setLogo = (i, url) => setLogoField(i, { url });
 
   // Only structural props in the key — colors/tileType/lines update in-place via split effects
   const court3DKey = `3d-${courtType}-${design.hoopVariant}-${design.hoopOffset}-${design.bothEnds}-${design.accessories.netProtect}-${design.accessories.gameLight}-${design.width}-${design.length}-${darkMode}`;
@@ -399,6 +425,8 @@ export default function Builder() {
               darkMode={darkMode}
               showRuler={showRuler}
               metric={metric}
+              logos={design.logos}
+              activeLogo={design.activeLogo}
               onDarkModeToggle={() => setDarkMode(v => !v)}
               className="w-full h-full"
             />
@@ -412,7 +440,7 @@ export default function Builder() {
                 length={design.length}
                 colors={design.colors}
                 linesConfig={linesConfig}
-                logoUrl={design.logos[design.activeLogo]}
+                logoUrl={design.logos[design.activeLogo]?.url}
                 courtType={courtType}
                 showGrid={false}
                 className="max-w-2xl w-full"
@@ -450,8 +478,8 @@ export default function Builder() {
 
         {/* Sidebar */}
         <aside className={cn(
-          'bg-[#2472B3] flex-col overflow-y-auto flex-shrink-0 transition-all',
-          sidebarOpen ? 'w-72 flex' : 'w-0 overflow-hidden hidden',
+          'bg-white flex-col overflow-y-auto flex-shrink-0 transition-all p-3',
+          sidebarOpen ? 'w-72 flex' : 'w-0 overflow-hidden hidden ',
           'lg:w-72 lg:flex'
         )}>
 
@@ -566,7 +594,7 @@ export default function Builder() {
               {/* Presets */}
               <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { label: 'Half Bball',  w: 30, l: 47  },
+                  { label: 'Half Bball',  w: 30, l: 30  },
                   { label: 'Full Bball',  w: 50, l: 94  },
                   { label: 'Pickleball', w: 30, l: 60  },
                   { label: 'Multi-Sport', w: 50, l: 84  },
@@ -627,27 +655,58 @@ export default function Builder() {
                 ))}
               </div>
               <LogoZone
-                url={design.logos[design.activeLogo]}
+                url={design.logos[design.activeLogo]?.url}
                 onChange={url => setLogo(design.activeLogo, url)}
               />
               <p className="text-xs text-gray-400 text-center">PNG / SVG with transparent background</p>
+
+              {design.logos[design.activeLogo]?.url && (() => {
+                const lg = design.logos[design.activeLogo];
+                const set = patch => setLogoField(design.activeLogo, patch);
+                const rows = [
+                  { key: 'vertical',   label: 'Vertical',   suffix: '%', min: 0,   max: 100, step: 1   },
+                  { key: 'horizontal', label: 'Horizontal', suffix: '%', min: 0,   max: 100, step: 1   },
+                  { key: 'scale',      label: 'Scale',      suffix: '',  min: 0.5, max: 12,  step: 0.5 },
+                  { key: 'rotate',     label: 'Rotate',     suffix: '°', min: 0,   max: 360, step: 1   },
+                ];
+                return (
+                  <div className="space-y-2.5 pt-1">
+                    <button
+                      onClick={() => set({ rotate: ((lg.rotate || 0) + 90) % 360 })}
+                      className="w-full py-2 text-xs font-semibold rounded-lg bg-[#2472B3] text-white hover:bg-[#1d5f96] transition-colors"
+                    >
+                      Rotate 90°
+                    </button>
+                    {rows.map(r => (
+                      <div key={r.key}>
+                        <div className="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                          <span>{r.label}</span><span>{lg[r.key]}{r.suffix}</span>
+                        </div>
+                        <input
+                          type="range" min={r.min} max={r.max} step={r.step} value={lg[r.key]}
+                          onChange={e => set({ [r.key]: Number(e.target.value) })}
+                          className="w-full accent-[#2472B3] cursor-pointer"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </Panel>
 
           {/* BASKETBALL */}
-          <Panel title="Basketball" checked={design.sports.basketball.enabled} onCheck={v => setSp('basketball', { enabled: v })}>
+          {/* <Panel title="Basketball" checked={design.sports.basketball.enabled} onCheck={v => setSp('basketball', { enabled: v })}>
             <SportPanel sport="basketball" config={design.sports.basketball} onChange={cfg => setSp('basketball', cfg)} />
           </Panel>
 
-          {/* PICKLEBALL */}
           <Panel title="Pickleball" checked={design.sports.pickleball.enabled} onCheck={v => setSp('pickleball', { enabled: v })}>
             <SportPanel sport="pickleball" config={design.sports.pickleball} onChange={cfg => setSp('pickleball', cfg)} />
           </Panel>
 
-          {/* TENNIS */}
           <Panel title="Tennis" checked={design.sports.tennis.enabled} onCheck={v => setSp('tennis', { enabled: v })}>
             <SportPanel sport="tennis" config={design.sports.tennis} onChange={cfg => setSp('tennis', cfg)} />
-          </Panel>
+          </Panel> */}
 
           {/* HOOP */}
           <Panel title="Hoop">
@@ -734,7 +793,8 @@ export default function Builder() {
             <div className="space-y-3">
               {[
                 { key: 'netProtect', label: 'Net Protect', img: '/tiles/net-protect.jpg', desc: 'Ball containment system' },
-                { key: 'gameLight',  label: 'Game Light',  img: '/tiles/game-light.jpg',  desc: 'LED court floodlights'  },
+                // Game Light option disabled per request — keep for future use:
+                // { key: 'gameLight',  label: 'Game Light',  img: '/tiles/game-light.jpg',  desc: 'LED court floodlights'  },
               ].map(acc => (
                 <button
                   key={acc.key}

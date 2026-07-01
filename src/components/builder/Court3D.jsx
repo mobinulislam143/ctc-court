@@ -15,56 +15,43 @@ function makeTileCanvas(tileType, size = 512) {
   const T = size, g = Math.max(4, Math.round(T * 0.055));
   const cx = T/2, cy = T/2, i1 = g, i2 = T - g;
 
-  // ── game_outdoor: Authentic Modular Lattice Tile (Internal Padding) ────────
+  // ── game_outdoor: Star-lattice tile (grayscale → multiplies with court color) ──
   if (tileType === 'game_outdoor') {
-    const CELLS = 8;                         // 8x8 = 64 cells total
-    const PADDING = Math.round(T * 0.014);    // Padding INSIDE the tile border
-    const inner = T - PADDING * 2;           // Usable grid area inside the padding
-    const cell  = inner / CELLS;             // Dimension of each cell
-    const RIB   = Math.max(2, cell * 0.10);  // Thickness of structural ribs
+    const CELLS = 8;                          // 8×8 cells per 1ft tile
+    const PADDING = Math.round(T * 0.014);
+    const inner = T - PADDING * 2;
+    const cell  = inner / CELLS;
+    const RIB   = Math.max(2, cell * 0.14);   // rib thickness
 
-    // ① Background: Deep navy blue void beneath the tile
-    ctx.fillStyle = '#2a4b6c'; 
+    // Recessed triangular voids (darker) — multiplies to a darker shade of court color
+    ctx.fillStyle = '#6f6f6f';
     ctx.fillRect(0, 0, T, T);
 
+    // Raised ribs (lighter) — border + X + center cross forms the 8-triangle star
     ctx.lineCap  = 'square';
     ctx.lineJoin = 'miter';
-    ctx.strokeStyle = '#3ba3f2';             // Vibrant blue rib surface color
+    ctx.strokeStyle = '#d6d6d6';
     ctx.lineWidth   = RIB;
-
-    // ② Draw cell internals (Diagonals + Center Crosses) inside the padded area
     for (let row = 0; row < CELLS; row++) {
       for (let col = 0; col < CELLS; col++) {
-        const x0 = PADDING + col * cell;
-        const y0 = PADDING + row * cell;
-        const x1 = x0 + cell;
-        const y1 = y0 + cell;
-        const midX = x0 + cell / 2;
-        const midY = y0 + cell / 2;
-        
-        // 1. Diagonal 'X' Ribs
-        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke();
-        
-        // 2. Internal Center Cross Ribs (+ shape)
-        ctx.beginPath(); ctx.moveTo(midX, y0); ctx.lineTo(midX, y1); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x0, midY); ctx.lineTo(x1, midY); ctx.stroke();
+        const x0 = PADDING + col * cell, y0 = PADDING + row * cell;
+        const x1 = x0 + cell, y1 = y0 + cell;
+        const midX = x0 + cell / 2, midY = y0 + cell / 2;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();       // '\' diagonal
+        ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke();       // '/' diagonal
+        ctx.beginPath(); ctx.moveTo(midX, y0); ctx.lineTo(midX, y1); ctx.stroke();   // vertical
+        ctx.beginPath(); ctx.moveTo(x0, midY); ctx.lineTo(x1, midY); ctx.stroke();   // horizontal
       }
     }
-
-    // ③ Draw Main Cell Grid Lines (The outer boundaries of the 64 cells)
+    // Cell grid lines
     for (let i = 0; i <= CELLS; i++) {
       const p = PADDING + i * cell;
-      // Vertical grid lines
       ctx.beginPath(); ctx.moveTo(p, PADDING); ctx.lineTo(p, PADDING + inner); ctx.stroke();
-      // Horizontal grid lines
       ctx.beginPath(); ctx.moveTo(PADDING, p); ctx.lineTo(PADDING + inner, p); ctx.stroke();
     }
-
-    // ④ Outer Tile Border: Clean, thin dark separation lines right at the edges (0 to T)
-    // This allows tiles to lock together perfectly while keeping the padding inside.
-    ctx.strokeStyle = '#182e44';
-    ctx.lineWidth   = Math.max(2, T * 0.008);
+    // Tile seam (slightly darker) around the 1ft border
+    ctx.strokeStyle = '#565656';
+    ctx.lineWidth   = Math.max(2, T * 0.01);
     ctx.strokeRect(0, 0, T, T);
 
     return c;
@@ -120,7 +107,7 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
   if (courtType && courtType.includes('basketball')) {
-    const kW = Math.min(12, width*0.28)*T, kH = Math.min(19, length*0.27)*T;
+    const kW = Math.min(12, width-2)*T, kH = Math.min(19, length-2)*T;
     const kx = (W-kW)/2, ftR = 6*T, tpR = Math.min(23.75*T, W*0.46);
     const baskY = H - 5.25*T; // basket position Y in canvas
 
@@ -213,12 +200,21 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   }
 
   if (courtType && courtType.includes('pickleball')) {
-    ctx.strokeRect(2,2,W-4,H-4);
-    const nY=H/2;
-    [[2,nY-7*T,W-2,nY-7*T],[2,nY+7*T,W-2,nY+7*T],[2,nY,W-2,nY],
-     [W/2,nY-7*T,W/2,2],[W/2,nY+7*T,W/2,H-2]].forEach(([x1,y1,x2,y2])=>{
-      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-    });
+    // Regulation playing area: 20' wide × 44' long, centered in the surface
+    const playW = Math.min(20, width) * T;
+    const playH = Math.min(44, length) * T;
+    const px = (W - playW) / 2, py = (H - playH) / 2;
+    const nY = py + playH / 2;            // net / center line
+    // Outer playing boundary
+    ctx.strokeRect(px, py, playW, playH);
+    // Net center line (full width)
+    ctx.beginPath(); ctx.moveTo(px, nY); ctx.lineTo(px + playW, nY); ctx.stroke();
+    // Non-volley (kitchen) lines: 7' each side of net
+    ctx.beginPath(); ctx.moveTo(px, nY - 7*T); ctx.lineTo(px + playW, nY - 7*T); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px, nY + 7*T); ctx.lineTo(px + playW, nY + 7*T); ctx.stroke();
+    // Center service line: from kitchen line to baseline on each half (not through kitchen)
+    ctx.beginPath(); ctx.moveTo(W/2, py);            ctx.lineTo(W/2, nY - 7*T); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2, nY + 7*T);      ctx.lineTo(W/2, py + playH); ctx.stroke();
   }
   return canvas;
 }
@@ -234,6 +230,51 @@ function makeNetCanvas(cellsX = 30, cellsY = 20) {
   ctx.lineWidth = 1.5;
   for (let i=0; i<=cellsX; i++) { const x=i/cellsX*W; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
   for (let i=0; i<=cellsY; i++) { const y=i/cellsY*H; ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+  return c;
+}
+
+// ── Lattice cell canvas (single asterisk/star cell, repeated over logos) ──────
+let _latticeCanvas = null;
+function getLatticeCellCanvas() {
+  if (_latticeCanvas) return _latticeCanvas;
+  const px = 96;
+  const c = document.createElement('canvas'); c.width = c.height = px;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, px, px);
+  // Step 1: fill the whole cell with the DARK recess tint (the triangular notches).
+  ctx.fillStyle = 'rgba(35,40,50,0.42)';
+  ctx.fillRect(0, 0, px, px);
+  // Step 2: punch the RAISED RIB surface transparent so the logo shows through it
+  //         (the ribs = the light "white space" of the tile → becomes the logo surface).
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.strokeStyle = 'rgba(0,0,0,1)';
+  ctx.lineJoin = 'miter'; ctx.lineCap = 'square';
+  ctx.lineWidth = Math.max(2, px * 0.16);
+  ctx.strokeRect(0, 0, px, px);                                   // cell border rib
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(px,px); ctx.moveTo(px,0); ctx.lineTo(0,px); ctx.stroke();  // X ribs
+  ctx.beginPath(); ctx.moveTo(px/2,0); ctx.lineTo(px/2,px); ctx.moveTo(0,px/2); ctx.lineTo(px,px/2); ctx.stroke(); // + ribs
+  ctx.globalCompositeOperation = 'source-over';
+  _latticeCanvas = c;
+  return c;
+}
+
+// ── Pickleball net canvas (fine black mesh + white top tape) ──────────────────
+function makePickleNetCanvas(cellsX = 120, cellsY = 20) {
+  const W = 1024, H = 180;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  // Diamond/square mesh grid
+  ctx.strokeStyle = 'rgba(15,15,15,0.92)';
+  ctx.lineWidth = 1.4;
+  const tapeH = H * 0.13;                     // top tape band height
+  for (let i = 0; i <= cellsX; i++) { const x = i/cellsX*W; ctx.beginPath(); ctx.moveTo(x, tapeH); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let i = 0; i <= cellsY; i++) { const y = tapeH + i/cellsY*(H-tapeH); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // White top tape band with thin dark edges
+  ctx.fillStyle = '#f2f2f2'; ctx.fillRect(0, 0, W, tapeH);
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, tapeH); ctx.lineTo(W, tapeH); ctx.stroke();
   return c;
 }
 
@@ -359,7 +400,7 @@ function buildHoop(scene, zPos, D, hoopOffset = 0, variant = 60) {
   });
 
   // ── Rim assembly ──────────────────────────────────────────────────────────
-  const RIM_R = 0.75;             // 18" standard
+  const RIM_R = 0.55;             // reduced rim radius
   const RIM_Z = BZ + D * 2.2;    // rim extends from board FRONT face toward court
 
   // J-bracket: horizontal bar from board front face to rim
@@ -386,7 +427,7 @@ function buildNetProtect(scene, zPos, D, courtWidth) {
   const matPole = new THREE.MeshStandardMaterial({color:0x1e1e1e, roughness:0.3, metalness:0.7});
 
   const NET_H = 12;        // height (ft)
-  const NET_W = courtWidth + 8; // wider than court
+  const NET_W = 8;         // fixed width (ft)
   const POLE_R = 0.22;
 
   // Two outer poles
@@ -729,6 +770,8 @@ export default function Court3D({
   darkMode = true,
   showRuler = false,
   metric = false,
+  logos = [],
+  activeLogo = 0,
   onDarkModeToggle,
   className = '',
 }) {
@@ -750,7 +793,7 @@ export default function Court3D({
     if (!s.courtMat) return;
     s.courtMat.color.set(colors?.main || '#0061A0'); s.courtMat.needsUpdate = true;
     if (s.sideMat) { s.sideMat.color.set(new THREE.Color(colors?.main||'#0061A0').multiplyScalar(0.5)); s.sideMat.needsUpdate = true; }
-    if (s.accentMeshes) s.accentMeshes.forEach(m => { m.material.color.set(colors?.accent||'#CB2D3E'); m.material.needsUpdate = true; });
+    if (s.accentMeshes) s.accentMeshes.forEach(m => { if (m.userData.fixedColor) return; m.material.color.set(colors?.accent||'#CB2D3E'); m.material.needsUpdate = true; });
     if (s.borderMat)  { s.borderMat.color.set(colors?.border||'#3E464A'); s.borderMat.needsUpdate = true; }
   }, [colors?.main, colors?.accent, colors?.border]);
 
@@ -773,6 +816,66 @@ export default function Court3D({
     const s = sceneRef.current;
     if (s.dimGroup) s.dimGroup.visible = showRuler;
   }, [showRuler]);
+
+  // Fast: court logos (position / scale / rotate)
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s.scene) return;
+    if (!s.logoGroup) { s.logoGroup = new THREE.Group(); s.scene.add(s.logoGroup); }
+    if (!s.logoTexCache) s.logoTexCache = new Map();
+    const loader = s.logoLoader || (s.logoLoader = new THREE.TextureLoader());
+    // Clear previous logo meshes
+    while (s.logoGroup.children.length) {
+      const m = s.logoGroup.children.pop();
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) {
+        if (m.userData.disposeMap && m.material.map) m.material.map.dispose(); // ruler labels only, not cached logo textures
+        m.material.dispose();
+      }
+    }
+    const fmtFt = ft => { const f = Math.round(ft * 12) / 12; const w = Math.floor(f); const inch = Math.round((f - w) * 12); return inch ? `${w}'${inch}"` : `${w}'`; };
+    (logos || []).forEach((lg, idx) => {
+      if (!lg || !lg.url) return;
+      const size = lg.scale || 3;
+      const mat = new THREE.MeshBasicMaterial({ transparent:true, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-3, polygonOffsetUnits:-3 });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      m.rotation.x = -Math.PI/2;
+      m.rotation.z = ((lg.rotate || 0) * Math.PI) / 180;
+      m.scale.set(size, size, 1);
+      const x = (((lg.horizontal ?? 50) / 100) - 0.5) * width;
+      const z = (((lg.vertical   ?? 50) / 100) - 0.5) * length;
+      m.position.set(x, 0.4, z);
+      s.logoGroup.add(m);
+
+      // Tile-lattice overlay so the logo looks printed onto the court tiles
+      const ovTex = new THREE.CanvasTexture(getLatticeCellCanvas());
+      ovTex.wrapS = ovTex.wrapT = THREE.RepeatWrapping;
+      const ovMat = new THREE.MeshBasicMaterial({ map: ovTex, transparent:true, opacity:1, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-4 });
+      const ov = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), ovMat);
+      ov.rotation.x = -Math.PI/2;
+      ov.rotation.z = ((lg.rotate || 0) * Math.PI) / 180;
+      ov.position.set(x, 0.41, z);
+      ov.userData.disposeMap = true;
+      s.logoGroup.add(ov);
+
+      const applyAspect = t => {
+        const aspect = (t.image && t.image.width) ? t.image.width / t.image.height : 1;
+        const wFeet = size * aspect, hFeet = size;
+        m.scale.set(wFeet, hFeet, 1);
+        ov.scale.set(wFeet, hFeet, 1);
+        // 8 cells per foot — matches the court tile's 8×8 cells-per-foot so logo cells = court cells
+        ovTex.repeat.set(Math.max(1, wFeet * 8), Math.max(1, hFeet * 8)); ovTex.needsUpdate = true;
+        if (s.renderer && s.camera) s.renderer.render(s.scene, s.camera);
+      };
+      let tex = s.logoTexCache.get(lg.url);
+      if (tex) { mat.map = tex; mat.needsUpdate = true; applyAspect(tex); }
+      else {
+        tex = loader.load(lg.url, t => { t.colorSpace = THREE.SRGBColorSpace; mat.map = t; mat.needsUpdate = true; applyAspect(t); });
+        s.logoTexCache.set(lg.url, tex);
+      }
+    });
+    if (s.renderer && s.camera) s.renderer.render(s.scene, s.camera);
+  }, [logos, activeLogo, width, length]);
 
   // Fast: lines update only
   useEffect(() => {
@@ -875,7 +978,7 @@ export default function Court3D({
     // Accent zones
     const accentMeshes = [];
     if (courtType && courtType.includes('basketball')) {
-      const kW=Math.min(12,width*0.28), kH=Math.min(19,length*0.27);
+      const kW=Math.min(12,width-2), kH=Math.min(19,length-2);
       const mkAccent = (zOff) => {
         const acTex=makeTileTexture(tileType,kW,kH,renderer);
         const mat=new THREE.MeshStandardMaterial({map:acTex,color:new THREE.Color(colors?.accent||'#9CA3AF'),roughness:0.85,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
@@ -884,6 +987,28 @@ export default function Court3D({
       };
       mkAccent(-(length/2-kH/2));
       if (courtType==='basketball_full') mkAccent(length/2-kH/2);
+    }
+
+    // Pickleball zones: gray kitchen (center) + black service boxes (corners)
+    if (courtType && courtType.includes('pickleball')) {
+      const playW = Math.min(20, width), playH = Math.min(44, length);
+      const KITCHEN = 14;           // 7ft each side of net
+      const halfBox = (playH - KITCHEN) / 2;   // 15ft service-box depth
+      const boxZc   = KITCHEN/2 + halfBox/2;   // center of each service box
+      const mkZone = (w, h, x, z, hex) => {
+        const tex = makeTileTexture(tileType, w, h, renderer);
+        const mat = new THREE.MeshStandardMaterial({map:tex, color:new THREE.Color(hex), roughness:0.85, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-1});
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+        m.rotation.x=-Math.PI/2; m.position.set(x, 0.383, z);
+        m.userData.fixedColor = true; scene.add(m); accentMeshes.push(m);
+      };
+      // Kitchen (gray) — full playing width, 14ft deep, centered on net
+      mkZone(playW, KITCHEN, 0, 0, '#9CA3AF');
+      // Four service boxes (black) — 10ft wide × 15ft deep
+      [-boxZc, boxZc].forEach(z => {
+        mkZone(playW/2, halfBox, -playW/4, z, '#2b2b2b');
+        mkZone(playW/2, halfBox,  playW/4, z, '#2b2b2b');
+      });
     }
 
     // Lines overlay
@@ -907,15 +1032,33 @@ export default function Court3D({
       if (courtType==='basketball_full'||bothEnds) nets.push(buildHoop(scene, (length/2)+3.8, -1, hoopOffset, v));
     }
 
-    // Pickleball net
+    // Pickleball net — realistic mesh with white top tape, black posts, center strap
     if (courtType && courtType.includes('pickleball')) {
-      const pMat = new THREE.MeshStandardMaterial({color:0x888888, roughness:0.7});
-      [-width/2-0.5, width/2+0.5].forEach(x => {
-        const p=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,3.5,8),pMat);
-        p.position.set(x,1.75,0); p.castShadow=true; scene.add(p);
+      const playW  = Math.min(20, width);
+      const NET_H  = 3;                 // 36" at posts
+      const postX  = playW/2 + 0.4;
+      const matPost = new THREE.MeshStandardMaterial({color:0x141414, roughness:0.35, metalness:0.6});
+
+      // Posts with rounded caps
+      [-postX, postX].forEach(x => {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,NET_H+0.3,12), matPost);
+        p.position.set(x,(NET_H+0.3)/2,0); p.castShadow=true; scene.add(p);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,8), matPost);
+        cap.position.set(x,NET_H+0.3,0); scene.add(cap);
       });
-      const pbNet=new THREE.Mesh(new THREE.BoxGeometry(width+1,3,0.05),new THREE.MeshLambertMaterial({color:0xbbbbbb,transparent:true,opacity:0.3,wireframe:true}));
-      pbNet.position.set(0,1.8,0); scene.add(pbNet);
+
+      // Net mesh with fine-grid texture
+      const pnCanvas = makePickleNetCanvas();
+      const pnTex = new THREE.CanvasTexture(pnCanvas);
+      pnTex.wrapS = THREE.RepeatWrapping; pnTex.repeat.set(1,1);
+      pnTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+      const matNet = new THREE.MeshBasicMaterial({map:pnTex, transparent:true, side:THREE.DoubleSide, alphaTest:0.02, depthWrite:false});
+      const pbNet = new THREE.Mesh(new THREE.PlaneGeometry(playW, NET_H), matNet);
+      pbNet.position.set(0, NET_H/2, 0); scene.add(pbNet);
+
+      // Center vertical strap (white)
+      const strap = new THREE.Mesh(new THREE.PlaneGeometry(0.12, NET_H), new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.DoubleSide}));
+      strap.position.set(0, NET_H/2, 0.01); scene.add(strap);
     }
 
     // Net protect
@@ -924,14 +1067,10 @@ export default function Court3D({
       if (courtType==='basketball_full'||bothEnds) buildNetProtect(scene, (length/2)+3.8, -1, width);
     }
 
-    // Game lights (corner poles)
+    // Game light — single pole centered behind the hoop
     if (showGameLight) {
-      buildGameLight(scene, -(width/2)-4.5, -(length/2)+1);
-      buildGameLight(scene,  (width/2)+4.5, -(length/2)+1);
-      if (courtType==='basketball_full') {
-        buildGameLight(scene, -(width/2)-4.5, (length/2)-1);
-        buildGameLight(scene,  (width/2)+4.5, (length/2)-1);
-      }
+      buildGameLight(scene, 0, -(length/2)-2);
+      if (courtType==='basketball_full') buildGameLight(scene, 0, (length/2)+2);
     }
 
     // Dimension annotations

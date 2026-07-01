@@ -92,7 +92,7 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row items-center gap-3 justify-center mb-8">
             <Button asChild size="lg" className="bg-[#3fb9ff] hover:bg-[#0ea5e9] text-white h-12 px-8 rounded-full shadow-lg shadow-[#3fb9ff]/25">
-              <Link to={createPageUrl('Builder')}>
+              <Link to={createPageUrl('CourtSelect')}>
                 <Play className="h-5 w-5 mr-2" />
                 Start Building
               </Link>
@@ -132,7 +132,7 @@ export default function Home() {
                 Design your perfect court with our interactive builder. Get instant pricing.
               </p>
               <Button asChild className="w-full bg-white text-[#3fb9ff] hover:bg-slate-100">
-                <Link to={createPageUrl('Builder')}>
+                <Link to={createPageUrl('CourtSelect')}>
                   Start Building
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -192,7 +192,7 @@ export default function Home() {
                 </div>
                 <div className="p-4">
                   <Link 
-                    to={createPageUrl('Builder')}
+                    to={createPageUrl('CourtSelect')}
                     className="flex items-center justify-between text-[#3fb9ff] hover:text-[#0ea5e9] font-medium text-sm"
                   >
                     Configure Now
@@ -232,7 +232,7 @@ export default function Home() {
 
           <div className="text-center mt-8">
             <Button asChild size="lg" className="bg-[#3fb9ff] hover:bg-[#0ea5e9] rounded-full h-12 px-8">
-              <Link to={createPageUrl('Builder')}>
+              <Link to={createPageUrl('CourtSelect')}>
                 Start Your Design
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Link>
@@ -302,7 +302,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button asChild size="lg" className="bg-white text-[#3fb9ff] hover:bg-slate-100 h-12 px-6 rounded-full">
-              <Link to={createPageUrl('Builder')}>
+              <Link to={createPageUrl('CourtSelect')}>
                 <Palette className="h-5 w-5 mr-2" />
                 Start Building
               </Link>

@@ -49,6 +49,7 @@
  */
 import Admin from './pages/Admin';
 import Builder from './pages/Builder';
+import CourtSelect from './pages/CourtSelect';
 import Contact from './pages/Contact';
 import Gallery from './pages/Gallery';
 import Home from './pages/Home';
@@ -64,6 +65,7 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "Admin": Admin,
     "Builder": Builder,
+    "CourtSelect": CourtSelect,
     "Contact": Contact,
     "Gallery": Gallery,
     "Home": Home,
