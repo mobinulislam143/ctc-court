@@ -641,29 +641,28 @@ export default function Builder() {
                 </span>
               </div>
 
-              {/* Presets — hidden on a pickleball-only court */}
-              {!(pickle.enabled && !bball.enabled) && (
-              <div className="grid grid-cols-2 gap-1.5">
+              {/* Court-size presets — Half / Full courts (basketball only) */}
+              {bball.enabled && (
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Half Bball',  w: 30, l: 30  },
-                  { label: 'Full Bball',  w: 50, l: 94  },
-                  { label: 'Pickleball', w: 30, l: 60  },
-                  { label: 'Multi-Sport', w: 50, l: 84  },
+                  { label: 'Half Courts', size: 'half', w: 50, l: 47 },
+                  { label: 'Full Courts', size: 'full', w: 50, l: 94 },
                 ].map(p => (
                   <button
                     key={p.label}
-                    onClick={() => setDesign(d => ({ ...d, width: p.w, length: p.l }))}
+                    onClick={() => setDesign(d => ({
+                      ...d,
+                      width: p.w, length: p.l,
+                      sports: { ...d.sports, basketball: { ...d.sports.basketball, size: p.size } },
+                    }))}
                     className={cn(
-                      'text-xs py-1.5 px-2 rounded-lg border leading-tight transition-colors',
-                      design.width === p.w && design.length === p.l
-                        ? 'bg-[#2472B3] text-white border-[#2472B3]'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#2472B3]'
+                      'py-2.5 px-2 rounded-lg text-sm font-semibold text-white transition-colors',
+                      bball.size === p.size
+                        ? 'bg-[#2472B3]'
+                        : 'bg-[#9fc3e3] hover:bg-[#7fb0da]'
                     )}
                   >
-                    {p.label}<br />
-                    <span className="font-normal opacity-70">
-                      {metric ? `${toMetric(p.w)}×${toMetric(p.l)}m` : `${p.w}×${p.l}`}
-                    </span>
+                    {p.label}
                   </button>
                 ))}
               </div>
