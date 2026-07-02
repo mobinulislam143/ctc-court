@@ -257,6 +257,33 @@ export default function CourtPreview({
       }
     }
 
+    // Width / length labels on the court sides (e.g. 55' and 50')
+    {
+      const drawDimLabel = (text, x, y, rotate = 0) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotate);
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(text).width;
+        const pw = tw + 16, ph = 26;
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+        ctx.fillStyle = '#111111';
+        ctx.fillText(text, 0, 1);
+        ctx.restore();
+      };
+      const ftLabel = ft => (ft % 1 === 0 ? `${ft}'` : `${Math.floor(ft)}' ${Math.round((ft % 1) * 12)}"`);
+      // Width — centered along the bottom edge
+      drawDimLabel(ftLabel(width), canvas.width / 2, canvas.height - 16);
+      // Length — rotated along the right edge
+      drawDimLabel(ftLabel(length), canvas.width - 16, canvas.height / 2, -Math.PI / 2);
+    }
+
     // Draw logo
     if (logoUrl && logoConfig) {
       const img = new Image();

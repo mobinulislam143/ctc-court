@@ -776,32 +776,41 @@ function makeDimAnnotation(group, pA, pB, label, perpAxis, offsetDist) {
   group.add(sp);
 }
 
-function buildDimensionAnnotations(scene, width, length, courtType, metric) {
+const fmtDim = (ft, metric) => {
+  if (metric) return `${(ft * 0.3048).toFixed(1)}m`;
+  const f = Math.floor(ft);
+  const i = Math.round((ft - f) * 12);
+  return i === 0 ? `${f}'` : `${f}' ${i}"`;
+};
+
+// Overall width / length labels along the court sides — always visible.
+function buildPerimeterDims(scene, width, length, metric) {
   const g = new THREE.Group();
-  const y = 0.46; // just above court surface
-
-  const fmt = (ft) => {
-    if (metric) return `${(ft * 0.3048).toFixed(1)}m`;
-    const f = Math.floor(ft);
-    const i = Math.round((ft - f) * 12);
-    return i === 0 ? `${f}'` : `${f}' ${i}"`;
-  };
-
+  const y = 0.46;
   const W = width, L = length;
-
-  // ── Overall court perimeter ─────────────────────────────────────────────
   // Width (along near baseline, offset outward in -Z)
   makeDimAnnotation(g,
     new THREE.Vector3(-W / 2, y, -L / 2),
     new THREE.Vector3(W / 2, y, -L / 2),
-    fmt(W), new THREE.Vector3(0, 0, -1), 5.2
+    fmtDim(W, metric), new THREE.Vector3(0, 0, -1), 5.2
   );
   // Length (along right sideline, offset outward in +X)
   makeDimAnnotation(g,
     new THREE.Vector3(W / 2, y, -L / 2),
     new THREE.Vector3(W / 2, y, L / 2),
-    fmt(L), new THREE.Vector3(1, 0, 0), 5.2
+    fmtDim(L, metric), new THREE.Vector3(1, 0, 0), 5.2
   );
+  scene.add(g);
+  return g;
+}
+
+function buildDimensionAnnotations(scene, width, length, courtType, metric) {
+  const g = new THREE.Group();
+  const y = 0.46; // just above court surface
+
+  const fmt = (ft) => fmtDim(ft, metric);
+
+  const W = width, L = length;
 
   if (courtType && courtType.includes('basketball')) {
     const kW = Math.min(KEY_W_FT, W - 2);
@@ -1275,7 +1284,10 @@ export default function Court3D({
       if (isFullBasketball(courtType)) buildGameLight(scene, 0, (length / 2) + 2);
     }
 
-    // Dimension annotations
+    // Width / length labels on the court sides — always visible
+    buildPerimeterDims(scene, width, length, metric);
+
+    // Detailed dimension annotations (behind the ruler toggle)
     const dimGroup = buildDimensionAnnotations(scene, width, length, courtType, metric);
     dimGroup.visible = showRuler;
 
