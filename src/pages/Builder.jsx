@@ -57,6 +57,12 @@ const HOOP_OPTIONS = [
 // ft → m conversion
 const toMetric = ft => (ft * 0.3048).toFixed(2);
 const fromMetric = m => Math.round(m / 0.3048);
+// ft (decimal) → feet-and-inches string, e.g. 50.17 → 50'2"
+const toFeetInches = ft => {
+  const whole = Math.floor(ft);
+  const inch = Math.round((ft - whole) * 12);
+  return inch === 12 ? `${whole + 1}'0"` : `${whole}'${inch}"`;
+};
 
 // ─── Collapsible Panel ────────────────────────────────────────────────────────
 function Panel({ title, children, defaultOpen = false, checked, onCheck }) {
@@ -223,12 +229,13 @@ function SportPanel({ sport, config, onChange }) {
 }
 
 // ─── Dimension slider (debounced: visual updates live, rebuild only on release) ─
-function DimSlider({ label, value, min, max, onCommit, metric }) {
+function DimSlider({ label, value, min, max, onCommit, metric, feetInches }) {
   const [local, setLocal] = useState(value);
   // Keep local in sync when value changes externally (e.g. preset buttons)
   React.useEffect(() => { setLocal(value); }, [value]);
 
-  const display = metric ? `${toMetric(local)} m` : `${local}'`;
+  const imp = v => (feetInches ? toFeetInches(v) : `${v}'`);
+  const display = metric ? `${toMetric(local)} m` : imp(local);
 
   return (
     <div>
@@ -245,8 +252,8 @@ function DimSlider({ label, value, min, max, onCommit, metric }) {
         style={{ height: '4px' }}
       />
       <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-        <span>{metric ? `${toMetric(min)}m` : `${min}'`}</span>
-        <span>{metric ? `${toMetric(max)}m` : `${max}'`}</span>
+        <span>{metric ? `${toMetric(min)}m` : imp(min)}</span>
+        <span>{metric ? `${toMetric(max)}m` : imp(max)}</span>
       </div>
     </div>
   );
@@ -521,9 +528,10 @@ export default function Builder() {
                 value={design.surface}
                 onChange={e => {
                   const surface = e.target.value;
-                  // Reset the tile to the "Select Tile" placeholder when the
-                  // environment changes so only valid tiles can be picked.
-                  setDesign(d => ({ ...d, surface, tileType: '' }));
+                  // Auto-select the first tile of the chosen environment
+                  // (Outdoor → Game Outdoor, Indoor → Compete Indoor).
+                  const firstTile = (TILE_GROUPS[surface] || [])[0]?.id || '';
+                  setDesign(d => ({ ...d, surface, tileType: firstTile }));
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2472B3]"
               >
@@ -574,13 +582,13 @@ export default function Builder() {
                 <button
                   onClick={() => setMetric(v => !v)}
                   className={cn(
-                    'relative w-11 h-6 rounded-full transition-colors mx-2',
+                    'relative inline-flex items-center w-11 h-6 rounded-full transition-colors mx-2 flex-shrink-0',
                     metric ? 'bg-[#2472B3]' : 'bg-gray-300'
                   )}
                 >
                   <span className={cn(
-                    'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
-                    metric ? 'translate-x-5' : 'translate-x-0.5'
+                    'inline-block w-5 h-5 bg-white rounded-full shadow transform transition-transform',
+                    metric ? 'translate-x-[22px]' : 'translate-x-0.5'
                   )} />
                 </button>
                 <span className={cn('text-xs font-semibold', metric ? 'text-[#2472B3]' : 'text-gray-400')}>Metric</span>
@@ -595,13 +603,13 @@ export default function Builder() {
                 <button
                   onClick={() => setShowRuler(v => !v)}
                   className={cn(
-                    'relative w-11 h-6 rounded-full transition-colors',
+                    'relative inline-flex items-center w-11 h-6 rounded-full transition-colors flex-shrink-0',
                     showRuler ? 'bg-[#2472B3]' : 'bg-gray-300'
                   )}
                 >
                   <span className={cn(
-                    'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
-                    showRuler ? 'translate-x-5' : 'translate-x-0.5'
+                    'inline-block w-5 h-5 bg-white rounded-full shadow transform transition-transform',
+                    showRuler ? 'translate-x-[22px]' : 'translate-x-0.5'
                   )} />
                 </button>
               </div>
@@ -612,6 +620,7 @@ export default function Builder() {
                 min={10} max={150}
                 onCommit={v => setDesign(d => ({ ...d, width: v }))}
                 metric={metric}
+                feetInches={pickle.enabled && !bball.enabled}
               />
               <DimSlider
                 label="Length"
@@ -619,6 +628,7 @@ export default function Builder() {
                 min={10} max={200}
                 onCommit={v => setDesign(d => ({ ...d, length: v }))}
                 metric={metric}
+                feetInches={pickle.enabled && !bball.enabled}
               />
 
               <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-[#2472B3] flex items-start gap-2">
@@ -631,7 +641,8 @@ export default function Builder() {
                 </span>
               </div>
 
-              {/* Presets */}
+              {/* Presets — hidden on a pickleball-only court */}
+              {!(pickle.enabled && !bball.enabled) && (
               <div className="grid grid-cols-2 gap-1.5">
                 {[
                   { label: 'Half Bball',  w: 30, l: 30  },
@@ -656,6 +667,7 @@ export default function Builder() {
                   </button>
                 ))}
               </div>
+              )}
             </div>
           </Panel>
 
