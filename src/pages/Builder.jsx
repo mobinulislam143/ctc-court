@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import SEO from '@/components/SEO';
 import Court3D from '@/components/builder/Court3D';
 import CourtPreview from '@/components/ui/CourtPreview';
+import InquiryModal from '@/components/builder/InquiryModal';
 import {
   ChevronUp, ChevronDown, Home, Menu, Upload, X, Info,
   Check, ChevronLeft, ChevronRight, Zap, ShieldCheck, Sun, Moon, Ruler
@@ -270,6 +271,7 @@ const DEFAULT_DESIGN = {
     border: '#3E464A',
     accent: '#9CA3AF',
     line:   '#F5F5F5',
+    pickle: '#4FC3F7',   // pickleball play-area fill on multi-sport courts
   },
   logos:       [ {...DEFAULT_LOGO}, {...DEFAULT_LOGO}, {...DEFAULT_LOGO} ],
   activeLogo:  0,
@@ -328,6 +330,7 @@ export default function Builder() {
   const [metric, setMetric]           = useState(false);
   const [showRuler, setShowRuler]     = useState(false);
   const [localHoopOffset, setLocalHoopOffset] = useState(0);
+  const [showInquiry, setShowInquiry] = useState(false);
 
   const bball  = design.sports.basketball;
   const pickle = design.sports.pickleball;
@@ -680,6 +683,9 @@ export default function Builder() {
               <SwatchPicker label="Main Court"        value={design.colors.main}   onChange={hex => setC({ main: hex })} />
               <SwatchPicker label="Border / Surround" value={design.colors.border} onChange={hex => setC({ border: hex })} />
               <SwatchPicker label="Accent / Key Zone" value={design.colors.accent} onChange={hex => setC({ accent: hex })} />
+              {bball.enabled && pickle.enabled && (
+                <SwatchPicker label="Pickleball Court" value={design.colors.pickle || '#4FC3F7'} onChange={hex => setC({ pickle: hex })} />
+              )}
               <SwatchPicker label="Line Color"        value={design.colors.line}   onChange={hex => setC({ line: hex })} />
               <div className="h-3 rounded-full overflow-hidden flex shadow-inner border border-gray-100">
                 <div className="w-6" style={{ backgroundColor: design.colors.border }} />
@@ -880,10 +886,7 @@ export default function Builder() {
           {/* CTA */}
           <div className="mt-auto p-4 flex flex-col gap-3 bg-white border-t border-gray-200">
             <button
-              onClick={() => {
-                const params = new URLSearchParams({ design: JSON.stringify({ ...design, courtType }) });
-                window.location.href = createPageUrl('Summary') + '?' + params.toString();
-              }}
+              onClick={() => setShowInquiry(true)}
               className="w-full bg-[#E8600A] hover:bg-[#d45508] text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-md flex items-center justify-center gap-2"
             >
               <Zap className="h-4 w-4" />
@@ -905,6 +908,16 @@ export default function Builder() {
           </div>
         </aside>
       </div>
+
+      <InquiryModal
+        open={showInquiry}
+        onClose={() => setShowInquiry(false)}
+        design={design}
+        courtType={courtType}
+        linesConfig={linesConfig}
+        sqft={sqft}
+        estPrice={estPrice}
+      />
     </div>
   );
 }

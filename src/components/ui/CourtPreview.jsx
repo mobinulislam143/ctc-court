@@ -22,31 +22,22 @@ function pickleCenters(courtType, width) {
   return [0];
 }
 
-export default function CourtPreview({ 
-  width, 
-  length, 
-  colors, 
-  linesConfig, 
-  logoUrl, 
+// Renders the complete court design into a canvas. Shared by the on-screen 2D
+// preview and the inquiry flow (downloadable design image). Returns a promise
+// that resolves once any logo has been drawn.
+export function renderCourtCanvas(canvas, {
+  width,
+  length,
+  colors,
+  linesConfig,
+  logoUrl,
   logoConfig,
   courtType,
-  showGrid = true,
-  className 
+  showTileGrid = false,
 }) {
-  const canvasRef = useRef(null);
-  const [zoom, setZoom] = useState(1);
-  const [showTileGrid, setShowTileGrid] = useState(showGrid);
+  const ctx = canvas.getContext('2d');
 
-  const scale = Math.min(600 / (width * TILE_SIZE), 400 / (length * TILE_SIZE), 1) * zoom;
-  const canvasWidth = width * TILE_SIZE * scale;
-  const canvasHeight = length * TILE_SIZE * scale;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    // Set canvas size
+  // Set canvas size
     canvas.width = width * TILE_SIZE;
     canvas.height = length * TILE_SIZE;
 
@@ -64,6 +55,18 @@ export default function CourtPreview({
     ctx.fillRect(0, canvas.height - borderWidth * TILE_SIZE, canvas.width, borderWidth * TILE_SIZE);
     ctx.fillRect(0, 0, borderWidth * TILE_SIZE, canvas.height);
     ctx.fillRect(canvas.width - borderWidth * TILE_SIZE, 0, borderWidth * TILE_SIZE, canvas.height);
+
+    // Multi-sport: customizable fill for each pickleball play area
+    // (drawn before the basketball key so the key sits on top)
+    if (courtType?.includes('pickleball') && courtType?.includes('multi_sport')) {
+      const T = TILE_SIZE;
+      const playW = Math.min(20, width) * T, playH = Math.min(44, length) * T;
+      const py = (canvas.height - playH) / 2;
+      ctx.fillStyle = colors?.pickle || '#4FC3F7';
+      pickleCenters(courtType, width).forEach(cxFt => {
+        ctx.fillRect(canvas.width / 2 + cxFt * T - playW / 2, py, playW, playH);
+      });
+    }
 
     // Draw accent zone (paint / key) — regulation 12'×19', border-aware, aligned
     // with the white key outline drawn later so the gray paint sits exactly under it.
@@ -284,14 +287,15 @@ export default function CourtPreview({
       drawDimLabel(ftLabel(length), canvas.width - 16, canvas.height / 2, -Math.PI / 2);
     }
 
-    // Draw logo
-    if (logoUrl && logoConfig) {
+    // Draw logo (async — resolve once drawn so callers can export the canvas)
+    return new Promise((resolve) => {
+      if (!(logoUrl && logoConfig)) { resolve(); return; }
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const logoScale = (logoConfig.scale || 50) / 100;
         const logoSize = Math.min(canvas.width, canvas.height) * 0.3 * logoScale;
-        
+
         let logoX, logoY;
         switch (logoConfig.position) {
           case 'center':
@@ -316,9 +320,36 @@ export default function CourtPreview({
         ctx.rotate((logoConfig.rotation || 0) * Math.PI / 180);
         ctx.drawImage(img, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
         ctx.restore();
+        resolve();
       };
+      img.onerror = () => resolve();
       img.src = logoUrl;
-    }
+    });
+}
+
+export default function CourtPreview({
+  width,
+  length,
+  colors,
+  linesConfig,
+  logoUrl,
+  logoConfig,
+  courtType,
+  showGrid = true,
+  className
+}) {
+  const canvasRef = useRef(null);
+  const [zoom, setZoom] = useState(1);
+  const [showTileGrid, setShowTileGrid] = useState(showGrid);
+
+  const scale = Math.min(600 / (width * TILE_SIZE), 400 / (length * TILE_SIZE), 1) * zoom;
+  const canvasWidth = width * TILE_SIZE * scale;
+  const canvasHeight = length * TILE_SIZE * scale;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    renderCourtCanvas(canvas, { width, length, colors, linesConfig, logoUrl, logoConfig, courtType, showTileGrid });
   }, [width, length, colors, linesConfig, logoUrl, logoConfig, showTileGrid, courtType]);
 
   return (

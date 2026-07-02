@@ -979,7 +979,10 @@ export default function Court3D({
       s.sideMat.needsUpdate = true;
     }
     if (s.accentMeshes) s.accentMeshes.forEach(m => {
-      if (m.userData.fixedColor) {
+      if (m.userData.colorKey === 'pickle') {
+        // multi-sport pickleball play-area fill — its own customizable color
+        m.material.color.set(tintFor(tileType, colors?.pickle || '#4FC3F7'));
+      } else if (m.userData.fixedColor) {
         // pickleball kitchen/service zones keep their fixed colour, but go white (true wood) for wood-grain
         m.material.color.set(wood ? '#ffffff' : (m.userData.baseColor || '#9CA3AF'));
       } else {
@@ -988,7 +991,7 @@ export default function Court3D({
       m.material.needsUpdate = true;
     });
     if (s.borderMat) { s.borderMat.color.set(colors?.border || '#3E464A'); s.borderMat.needsUpdate = true; }
-  }, [colors?.main, colors?.accent, colors?.border, tileType]);
+  }, [colors?.main, colors?.accent, colors?.border, colors?.pickle, tileType]);
 
   // Fast: tile update only
   useEffect(() => {
@@ -1197,23 +1200,41 @@ export default function Court3D({
       const KITCHEN = 14;           // 7ft each side of net
       const halfBox = (playH - KITCHEN) / 2;   // 15ft service-box depth
       const boxZc = KITCHEN / 2 + halfBox / 2;   // center of each service box
-      const mkZone = (w, h, x, z, hex) => {
+      const mkZone = (w, h, x, z, hex, colorKey) => {
         const tex = makeTileTexture(tileType, w, h, renderer);
         const mat = new THREE.MeshStandardMaterial({ map: tex, color: new THREE.Color(tintFor(tileType, hex)), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
         const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
         m.rotation.x = -Math.PI / 2; m.position.set(x, 0.383, z);
-        m.userData.fixedColor = true; m.userData.baseColor = hex;
+        m.userData.colorKey = colorKey; m.userData.baseColor = hex;
         m.userData.tileW = w; m.userData.tileH = h;     // for correct 1ft repeat on tile change
         scene.add(m); accentMeshes.push(m);
       };
+      const kitchenHex = colors?.kitchen || '#9CA3AF';
+      const serviceHex = colors?.service || '#2b2b2b';
       pickleCenters(courtType, width).forEach(cx => {
-        // Kitchen (gray) — full playing width, 14ft deep, centered on net
-        mkZone(playW, KITCHEN, cx, 0, '#9CA3AF');
-        // Four service boxes (black) — 10ft wide × 15ft deep
+        // Kitchen — full playing width, 14ft deep, centered on net (customizable)
+        mkZone(playW, KITCHEN, cx, 0, kitchenHex, 'kitchen');
+        // Four service boxes — 10ft wide × 15ft deep (customizable)
         [-boxZc, boxZc].forEach(z => {
-          mkZone(playW / 2, halfBox, cx - playW / 4, z, '#2b2b2b');
-          mkZone(playW / 2, halfBox, cx + playW / 4, z, '#2b2b2b');
+          mkZone(playW / 2, halfBox, cx - playW / 4, z, serviceHex, 'service');
+          mkZone(playW / 2, halfBox, cx + playW / 4, z, serviceHex, 'service');
         });
+      });
+    }
+
+    // Multi-sport: solid customizable fill for each pickleball play area
+    // (sits just below the basketball key so the key stays on top)
+    if (courtType && courtType.includes('pickleball') && courtType.includes('multi_sport')) {
+      const playW = Math.min(20, width), playH = Math.min(44, length);
+      pickleCenters(courtType, width).forEach(cx => {
+        const tex = makeTileTexture(tileType, playW, playH, renderer);
+        const hex = colors?.pickle || '#4FC3F7';
+        const mat = new THREE.MeshStandardMaterial({ map: tex, color: new THREE.Color(tintFor(tileType, hex)), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(playW, playH), mat);
+        m.rotation.x = -Math.PI / 2; m.position.set(cx, 0.382, 0);
+        m.userData.colorKey = 'pickle';
+        m.userData.tileW = playW; m.userData.tileH = playH;
+        scene.add(m); accentMeshes.push(m);
       });
     }
 
