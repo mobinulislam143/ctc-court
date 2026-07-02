@@ -268,6 +268,14 @@ function makeTileTexture(tileType, cW, cH, renderer) {
 // its real colour), otherwise the caller's chosen court colour.
 const tintFor = (tileType, hex) => (tileType === 'wood_grain' ? '#ffffff' : hex);
 
+// Full-length basketball court (also matches multi-sport full types).
+const isFullBasketball = ct => ct === 'basketball_full' || (ct || '').includes('full_basketball');
+
+// Key (paint) dimensions taken from the VersaCourt reference:
+// width 3444.9 mm ≈ 11'4", baseline → free-throw line 5710.6 mm ≈ 18'9"
+const KEY_W_FT = 3444.9 / 304.8;
+const KEY_H_FT = 5710.6 / 304.8;
+
 // ── Lines canvas ──────────────────────────────────────────────────────────────
 function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   const T = 32;
@@ -282,95 +290,70 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
   if (courtType && courtType.includes('basketball')) {
-    const kW = Math.min(12, width - 2) * T, kH = Math.min(19, length - 2) * T;
-    const kx = (W - kW) / 2, ftR = 6 * T, tpR = Math.min(23.75 * T, W * 0.46);
-    const baskY = H - 5.25 * T; // basket position Y in canvas
+    // VersaCourt-style line work: key + solid free-throw dome + basket-centered
+    // 3-point arc with straight corner lines. No painted boundary, basket circle,
+    // restricted arc or backboard mark — the tile edge / 3D hoop provide those.
+    const kW = Math.min(KEY_W_FT, width - 2) * T, kH = Math.min(KEY_H_FT, length - 2) * T;
+    const kx = (W - kW) / 2;
+    const ftR = kW / 2;                 // dome spans the key width exactly
+    const baskFromBase = 5.25 * T;      // basket center distance from baseline
 
-    // Outer boundary
-    ctx.strokeRect(2, 2, W - 4, H - 4);
+    // 3-point geometry — 19'9" radius arc with straight corner lines 19' either
+    // side of center (reference: the verticals run straight up from the baseline
+    // ~10'6" before curving into the arc, keeping the bottom squared-off).
+    const tpR = Math.min(19.75 * T, W / 2 - 0.5 * T);
+    const cornerD = Math.min(19 * T, tpR - 0.35 * T);
+    const joinFromBase = baskFromBase + Math.sqrt(Math.max(0, tpR * tpR - cornerD * cornerD));
 
-    // ── Key / Paint ─────────────────────────────────────────────────────
-    ctx.strokeRect(kx, H - kH, kW, kH);
+    // Lane markers from baseline: wide block at 7', thin ticks above (reference spacing)
+    const laneMarks = [7, 11, 14.5, 18];
+    const tickLen = 0.55 * T;
 
-    // Lane block markers (tick marks outside the lane on both sides)
-    // NBA positions from baseline: 7', 8', 11', 14' (approximate NCAA: 3',6',9',12')
-    const laneTicksFromBaseline = [3, 6, 9, 12]; // ft
-    const laneTickLen = 0.55 * T;
-    const laneTickW = Math.max(1.5, T * 0.06);
-    ctx.save();
-    ctx.lineWidth = laneTickW;
-    laneTicksFromBaseline.forEach(d => {
-      const ty = H - d * T;
-      if (ty <= H - kH) return; // only within the key height
-      // Left lane line: tick extends OUTSIDE key (to the left)
-      ctx.beginPath(); ctx.moveTo(kx, ty); ctx.lineTo(kx - laneTickLen, ty); ctx.stroke();
-      // Right lane line: tick extends OUTSIDE key (to the right)
-      ctx.beginPath(); ctx.moveTo(kx + kW, ty); ctx.lineTo(kx + kW + laneTickLen, ty); ctx.stroke();
-    });
-    ctx.restore();
+    // Draw one basketball end. top=false → near baseline (y = H), top=true → far baseline (y = 0)
+    const drawEnd = (top) => {
+      const y = d => (top ? d : H - d);   // px-from-this-baseline → canvas y
+      const baskY = y(baskFromBase);
+      const ftY = y(kH);                  // free-throw line
 
-    // Free throw arc (solid top half — above key, into court)
-    ctx.beginPath(); ctx.arc(W / 2, H - kH, ftR, Math.PI, 0); ctx.stroke();
-    // Free throw arc (dashed bottom half — inside key)
-    ctx.setLineDash([T * 0.7, T * 0.45]);
-    ctx.beginPath(); ctx.arc(W / 2, H - kH, ftR, 0, Math.PI); ctx.stroke();
-    ctx.setLineDash([]);
+      // Key / paint outline
+      ctx.strokeRect(kx, top ? 0 : H - kH, kW, kH);
 
-    // 3-point arc
-    ctx.beginPath(); ctx.arc(W / 2, H, tpR, -Math.PI, 0); ctx.stroke();
-    // 3-point corner straight lines (connect arc to baseline)
-    const tpHalf = Math.min(tpR, W * 0.46);
-    const cornerX = Math.sqrt(Math.max(0, tpR * tpR - (H - baskY) * (H - baskY)));
-    if (!isNaN(cornerX) && cornerX < W / 2) {
-      // Left corner line from arc tangent to baseline
-      ctx.beginPath(); ctx.moveTo(W / 2 - cornerX, baskY); ctx.lineTo(W / 2 - cornerX, H - 2); ctx.stroke();
-      // Right corner line
-      ctx.beginPath(); ctx.moveTo(W / 2 + cornerX, baskY); ctx.lineTo(W / 2 + cornerX, H - 2); ctx.stroke();
-    }
-
-    // Basket circle (9" = 0.75ft radius)
-    ctx.beginPath(); ctx.arc(W / 2, baskY, 0.75 * T, 0, Math.PI * 2); ctx.stroke();
-
-    // Restricted area arc (4ft radius from basket center, toward court)
-    ctx.beginPath(); ctx.arc(W / 2, baskY, 4 * T, -Math.PI, 0); ctx.stroke();
-
-    // Backboard mark (line behind basket, 4" thick = just an outline)
-    const bbW = 6 * T; // 6ft wide backboard projection onto court
-    ctx.save(); ctx.lineWidth = Math.max(3, T * 0.13);
-    ctx.beginPath(); ctx.moveTo(W / 2 - bbW / 2, H - 2); ctx.lineTo(W / 2 + bbW / 2, H - 2); ctx.stroke();
-    ctx.restore();
-
-    if (courtType === 'basketball_full') {
-      // Center line
-      ctx.beginPath(); ctx.moveTo(2, H / 2); ctx.lineTo(W - 2, H / 2); ctx.stroke();
-      // Center circles
-      ctx.beginPath(); ctx.arc(W / 2, H / 2, 6 * T, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(W / 2, H / 2, 2 * T, 0, Math.PI * 2); ctx.stroke();
-      // Opposite key
-      ctx.strokeRect(kx, 0, kW, kH);
-      laneTicksFromBaseline.forEach(d => {
-        const ty = d * T;
-        if (ty >= kH) return;
-        ctx.save(); ctx.lineWidth = laneTickW;
-        ctx.beginPath(); ctx.moveTo(kx, ty); ctx.lineTo(kx - laneTickLen, ty); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(kx + kW, ty); ctx.lineTo(kx + kW + laneTickLen, ty); ctx.stroke();
+      // Lane markers (outside the lane, both sides)
+      laneMarks.forEach((d, i) => {
+        if (d * T >= kH) return;
+        const ty = y(d * T);
+        ctx.save();
+        ctx.lineWidth = i === 0 ? Math.max(3, T * 0.75) : Math.max(1.5, T * 0.09);
+        ctx.beginPath(); ctx.moveTo(kx, ty); ctx.lineTo(kx - tickLen, ty); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(kx + kW, ty); ctx.lineTo(kx + kW + tickLen, ty); ctx.stroke();
         ctx.restore();
       });
-      ctx.beginPath(); ctx.arc(W / 2, kH, ftR, 0, Math.PI); ctx.stroke();
-      ctx.setLineDash([T * 0.7, T * 0.45]);
-      ctx.beginPath(); ctx.arc(W / 2, kH, ftR, Math.PI, 0); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.beginPath(); ctx.arc(W / 2, 0, tpR, 0, Math.PI, true); ctx.stroke();
-      const baskY2 = 5.25 * T;
-      if (!isNaN(cornerX) && cornerX < W / 2) {
-        ctx.beginPath(); ctx.moveTo(W / 2 - cornerX, 2); ctx.lineTo(W / 2 - cornerX, baskY2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(W / 2 + cornerX, 2); ctx.lineTo(W / 2 + cornerX, baskY2); ctx.stroke();
-      }
-      ctx.beginPath(); ctx.arc(W / 2, baskY2, 0.75 * T, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(W / 2, baskY2, 4 * T, 0, Math.PI, true); ctx.stroke();
-      ctx.save(); ctx.lineWidth = Math.max(3, T * 0.13);
-      ctx.beginPath(); ctx.moveTo(W / 2 - bbW / 2, 2); ctx.lineTo(W / 2 + bbW / 2, 2); ctx.stroke();
-      ctx.restore();
+
+      // Free-throw dome — solid half toward the court only
+      ctx.beginPath();
+      ctx.arc(W / 2, ftY, ftR, top ? 0 : Math.PI, top ? Math.PI : 0);
+      ctx.stroke();
+
+      // 3-point line: straight vertical corner segments from the baseline to the arc
+      const yJoin = y(joinFromBase);
+      ctx.beginPath(); ctx.moveTo(W / 2 - cornerD, y(0)); ctx.lineTo(W / 2 - cornerD, yJoin); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W / 2 + cornerD, y(0)); ctx.lineTo(W / 2 + cornerD, yJoin); ctx.stroke();
+      // Arc centered on the basket, between the two junctions (through the apex)
+      const dy = yJoin - baskY;
+      const aL = Math.atan2(dy, -cornerD), aR = Math.atan2(dy, cornerD);
+      ctx.beginPath();
+      ctx.arc(W / 2, baskY, tpR, top ? aR : aL, top ? aL : aR);
+      ctx.stroke();
+    };
+
+    drawEnd(false);
+
+    if (isFullBasketball(courtType)) {
+      drawEnd(true);
+      // Center line (full width) + center circles
+      ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, H / 2, 6 * T, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, H / 2, 2 * T, 0, Math.PI * 2); ctx.stroke();
     }
   }
 
@@ -802,11 +785,11 @@ function buildDimensionAnnotations(scene, width, length, courtType, metric) {
   );
 
   if (courtType && courtType.includes('basketball')) {
-    const kW = Math.min(12, W * 0.28);
-    const kH = Math.min(19, L * 0.27);
-    const z0 = -L / 2; // baseline Z
-    const ftR = 6;     // free throw circle radius
-    const tpR = Math.min(23.75, W * 0.46); // 3-point radius
+    const kW = Math.min(KEY_W_FT, W - 2);
+    const kH = Math.min(KEY_H_FT, L - 2);
+    const z0 = -L / 2;  // baseline Z
+    const ftR = kW / 2; // free-throw dome radius (spans the key width)
+    const tpR = Math.min(19.75, W / 2 - 0.5); // 3-point radius (matches painted lines)
 
     // Key width at top of paint
     makeDimAnnotation(g,
@@ -837,23 +820,18 @@ function buildDimensionAnnotations(scene, width, length, courtType, metric) {
     rimSp.position.set(0, y + 0.4, z0 - 2.2);
     g.add(rimSp);
 
-    // Overhang label (basket to backboard = 4")
-    const ovSp = makeDimLabel(`Overhang: 4"`);
+    // Backboard overhang from baseline (1219.2 mm = 4')
+    const ovSp = makeDimLabel(`Overhang: 4'`);
     ovSp.position.set(kW / 2 + 3.2, y + 0.4, z0 + 0.5);
     g.add(ovSp);
 
-    // Corner 3-point distance
-    const cornerDist = Math.min(22, W / 2 - 3);
+    // Corner 3-point distance (straight corner lines from center)
+    const cornerDist = Math.min(19, W / 2 - 3);
     const cSp = makeDimLabel(`Corner: ${fmt(cornerDist)}`);
     cSp.position.set(-W / 2 + 3.5, y + 0.4, z0 + 1.5);
     g.add(cSp);
 
-    // Restricted area
-    const raSp = makeDimLabel(`RA: 4'`);
-    raSp.position.set(kW / 2 + 2.2, y + 0.4, z0 + 5.5);
-    g.add(raSp);
-
-    if (courtType === 'basketball_full') {
+    if (isFullBasketball(courtType)) {
       // Center circle label
       const ccSp = makeDimLabel(`Center circle: ${fmt(6)} R`);
       ccSp.position.set(W / 2 + 4.5, y + 0.4, 0);
@@ -1169,7 +1147,7 @@ export default function Court3D({
     // Accent zones
     const accentMeshes = [];
     if (courtType && courtType.includes('basketball')) {
-      const kW = Math.min(12, width - 2), kH = Math.min(19, length - 2);
+      const kW = Math.min(KEY_W_FT, width - 2), kH = Math.min(KEY_H_FT, length - 2);
       const mkAccent = (zOff) => {
         const acTex = makeTileTexture(tileType, kW, kH, renderer);
         const baseHex = colors?.accent || '#9CA3AF';
@@ -1180,7 +1158,7 @@ export default function Court3D({
         scene.add(m); accentMeshes.push(m);
       };
       mkAccent(-(length / 2 - kH / 2));
-      if (courtType === 'basketball_full') mkAccent(length / 2 - kH / 2);
+      if (isFullBasketball(courtType)) mkAccent(length / 2 - kH / 2);
     }
 
     // Pickleball zones: gray kitchen (center) + black service boxes (corners)
@@ -1225,7 +1203,7 @@ export default function Court3D({
     if (showHoop) {
       const v = hoopVariant === 'megaslam72' ? 72 : 60;
       nets.push(buildHoop(scene, -(length / 2) - 3.8, 1, hoopOffset, v));
-      if (courtType === 'basketball_full' || bothEnds) nets.push(buildHoop(scene, (length / 2) + 3.8, -1, hoopOffset, v));
+      if (isFullBasketball(courtType) || bothEnds) nets.push(buildHoop(scene, (length / 2) + 3.8, -1, hoopOffset, v));
     }
 
     // Pickleball net — realistic mesh with white top tape, black posts, center strap
@@ -1260,13 +1238,13 @@ export default function Court3D({
     // Net protect
     if (showNetProtect && isBball) {
       buildNetProtect(scene, -(length / 2) - 3.8, 1, width);
-      if (courtType === 'basketball_full' || bothEnds) buildNetProtect(scene, (length / 2) + 3.8, -1, width);
+      if (isFullBasketball(courtType) || bothEnds) buildNetProtect(scene, (length / 2) + 3.8, -1, width);
     }
 
     // Game light — single pole centered behind the hoop
     if (showGameLight) {
       buildGameLight(scene, 0, -(length / 2) - 2);
-      if (courtType === 'basketball_full') buildGameLight(scene, 0, (length / 2) + 2);
+      if (isFullBasketball(courtType)) buildGameLight(scene, 0, (length / 2) + 2);
     }
 
     // Dimension annotations

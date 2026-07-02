@@ -263,7 +263,7 @@ function DimSlider({ label, value, min, max, onCommit, metric, feetInches }) {
 const DEFAULT_DESIGN = {
   surface:    'outdoor',
   tileType:   'game_outdoor',
-  width:      30,
+  width:      50,
   length:     47,
   colors: {
     main:   '#0061A0',
@@ -295,7 +295,7 @@ function buildInitialDesign(sport) {
   } else if (sport === 'basketball') {
     d.sports.basketball.enabled = true;
     d.sports.pickleball.enabled = false;
-    d.width = 30; d.length = 30;               // half court 30'×30'
+    d.width = 50; d.length = 47;               // Half Courts preset (auto-selected)
   } else if (sport === 'multi' || sport === 'multi_sport') {
     d.sports.basketball.enabled = true;
     d.sports.pickleball.enabled = true;

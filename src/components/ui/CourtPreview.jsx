@@ -5,6 +5,11 @@ import { cn } from '@/lib/utils';
 
 const TILE_SIZE = 12; // pixels per tile in preview
 
+// Key (paint) dimensions from the VersaCourt reference:
+// width 3444.9 mm ≈ 11'4", baseline → free-throw line 5710.6 mm ≈ 18'9"
+const KEY_W_FT = 3444.9 / 304.8;
+const KEY_H_FT = 5710.6 / 304.8;
+
 export default function CourtPreview({ 
   width, 
   length, 
@@ -48,19 +53,22 @@ export default function CourtPreview({
     ctx.fillRect(0, 0, borderWidth * TILE_SIZE, canvas.height);
     ctx.fillRect(canvas.width - borderWidth * TILE_SIZE, 0, borderWidth * TILE_SIZE, canvas.height);
 
-    // Draw accent zone (key area for basketball)
+    // Draw accent zone (paint / key) — regulation 12'×19', border-aware, aligned
+    // with the white key outline drawn later so the gray paint sits exactly under it.
     if (courtType?.includes('basketball') && colors?.accent) {
-      const keyWidth = Math.min(width * 0.4, 12);
-      const keyLength = Math.min(length * 0.35, 19);
-      const keyX = (width - keyWidth) / 2 * TILE_SIZE;
-      const keyY = canvas.height - borderWidth * TILE_SIZE - keyLength * TILE_SIZE;
-      
-      ctx.fillStyle = colors.accent;
-      ctx.fillRect(keyX, keyY, keyWidth * TILE_SIZE, keyLength * TILE_SIZE);
+      const inset = borderWidth * TILE_SIZE;
+      const playWft = (canvas.width - inset * 2) / TILE_SIZE;
+      const playHft = (canvas.height - inset * 2) / TILE_SIZE;
+      const keyW = Math.min(KEY_W_FT, playWft - 2) * TILE_SIZE;
+      const keyH = Math.min(KEY_H_FT, playHft - 2) * TILE_SIZE;
+      const keyX = (canvas.width - keyW) / 2;
 
-      // Half court key
-      if (courtType === 'basketball_full') {
-        ctx.fillRect(keyX, borderWidth * TILE_SIZE, keyWidth * TILE_SIZE, keyLength * TILE_SIZE);
+      ctx.fillStyle = colors.accent;
+      // Near (bottom) key — always present
+      ctx.fillRect(keyX, canvas.height - inset - keyH, keyW, keyH);
+      // Far (top) key — full court only
+      if (courtType === 'basketball_full' || courtType?.includes('full_basketball')) {
+        ctx.fillRect(keyX, inset, keyW, keyH);
       }
     }
 
@@ -104,63 +112,87 @@ export default function CourtPreview({
       const courtH = canvas.height - inset * 2;
 
       if (linesConfig.basketball && courtType?.includes('basketball')) {
-        // Court boundary
-        ctx.strokeRect(inset, inset, courtW, courtH);
-        
-        // Key measurements (regulation)
-        const keyW = 12 * TILE_SIZE;
-        const keyH = 19 * TILE_SIZE;
-        const threePointRadius = 23.75 * TILE_SIZE;
-        const freeThrowRadius = 6 * TILE_SIZE;
-        const centerCircleRadius = 6 * TILE_SIZE;
+        // Regulation line work — identical geometry to the 3D Court3D view so the
+        // 2D preview and the 3D render always match. Half court = near (bottom)
+        // end only (image 2); full court = both ends + center line & double
+        // center circle (image 1).
+        const T = TILE_SIZE;
+        const W = canvas.width, H = canvas.height;
+        const playW = courtW, playH = courtH;   // area inside the colored border
 
-        // Function to draw one end
-        const drawBasketballEnd = (topY, isTop = false) => {
-          // Key rectangle
-          const keyX = (canvas.width - keyW) / 2;
-          ctx.strokeRect(keyX, topY, keyW, keyH);
+        // Key (paint), free-throw circle, basket offset
+        const keyW = Math.min(KEY_W_FT, playW / T - 2) * T;   // 11'4" lane
+        const keyH = Math.min(KEY_H_FT, playH / T - 2) * T;   // 18'9" baseline → FT line
+        const keyX = (W - keyW) / 2;
+        const ftRadius = keyW / 2;                       // dome spans key width
+        const baskFromBase = 5.25 * T;                   // rim center from baseline
 
-          // Free throw circle (full)
+        // Three-point geometry — 19'9" radius arc with straight corner lines 19'
+        // either side of center, same as the 3D view. The verticals run straight
+        // up from the baseline and merge into the arc (~10'6" up), keeping the
+        // bottom squared-off like the reference.
+        const tpR = Math.min(19.75 * T, playW / 2 - 0.5 * T);
+        const cornerD = Math.min(19 * T, tpR - 0.35 * T);
+        const joinFromBase = baskFromBase + Math.sqrt(Math.max(0, tpR * tpR - cornerD * cornerD));
+
+        // Lane markers: wide block at 7', thin ticks above (reference spacing)
+        const laneMarks = [7, 11, 14.5, 18];
+        const tickLen = 0.55 * T;
+
+        // baseY = canvas y of this end's baseline; dir = +1 drawing downward (top
+        // end), -1 upward (bottom end)
+        const drawBasketballEnd = (baseY, dir) => {
+          const y = d => baseY + dir * d;
+          const baskY = y(baskFromBase);
+          const ftY = y(keyH);
+
+          // Key / paint outline
+          ctx.strokeRect(keyX, dir > 0 ? baseY : baseY - keyH, keyW, keyH);
+
+          // Lane markers (both sides of the lane)
+          laneMarks.forEach((d, i) => {
+            if (d * T >= keyH) return;
+            const ty = y(d * T);
+            ctx.save();
+            ctx.lineWidth = i === 0 ? 0.75 * T : 1.5;
+            ctx.beginPath(); ctx.moveTo(keyX, ty); ctx.lineTo(keyX - tickLen, ty); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(keyX + keyW, ty); ctx.lineTo(keyX + keyW + tickLen, ty); ctx.stroke();
+            ctx.restore();
+          });
+
+          // Free-throw dome — solid half toward the court only
           ctx.beginPath();
-          ctx.arc(canvas.width / 2, topY + keyH, freeThrowRadius, isTop ? 0 : Math.PI, isTop ? Math.PI : 0, false);
+          ctx.arc(W / 2, ftY, ftRadius, dir > 0 ? 0 : Math.PI, dir > 0 ? Math.PI : 0);
           ctx.stroke();
 
-          // Free throw circle (dashed - back half)
-          ctx.setLineDash([10, 10]);
+          // Three-point line: straight vertical corner segments from the baseline to the arc
+          const yJoin = y(joinFromBase);
+          ctx.beginPath(); ctx.moveTo(W / 2 - cornerD, baseY); ctx.lineTo(W / 2 - cornerD, yJoin); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(W / 2 + cornerD, baseY); ctx.lineTo(W / 2 + cornerD, yJoin); ctx.stroke();
+          // Arc centered on the basket, between the two junctions (through the apex)
+          const dyA = yJoin - baskY;
+          const aL = Math.atan2(dyA, -cornerD), aR = Math.atan2(dyA, cornerD);
           ctx.beginPath();
-          ctx.arc(canvas.width / 2, topY + keyH, freeThrowRadius, isTop ? Math.PI : 0, isTop ? 0 : Math.PI, false);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          // Three-point line
-          const arcCenterY = topY + keyH;
-          const radius = Math.min(threePointRadius, 23.75 * TILE_SIZE);
-          ctx.beginPath();
-          if (isTop) {
-            ctx.arc(canvas.width / 2, arcCenterY, radius, Math.PI, 0, true);
-          } else {
-            ctx.arc(canvas.width / 2, arcCenterY, radius, Math.PI, 0, false);
-          }
+          ctx.arc(W / 2, baskY, tpR, dir > 0 ? aR : aL, dir > 0 ? aL : aR);
           ctx.stroke();
         };
 
-        // Draw baseline ends
-        drawBasketballEnd(canvas.height - inset - keyH, false); // Bottom
-        
-        if (courtType === 'basketball_full') {
-          // Center line
-          ctx.beginPath();
-          ctx.moveTo(inset, canvas.height / 2);
-          ctx.lineTo(canvas.width - inset, canvas.height / 2);
-          ctx.stroke();
+        // Bottom end (half court default → image 2)
+        drawBasketballEnd(H - inset, -1);
 
-          // Center circle
+        // Full court adds the top end + center line & circles (→ image 1)
+        if (courtType === 'basketball_full' || courtType?.includes('full_basketball')) {
+          drawBasketballEnd(inset, 1);
           ctx.beginPath();
-          ctx.arc(canvas.width / 2, canvas.height / 2, centerCircleRadius, 0, Math.PI * 2);
+          ctx.moveTo(inset, H / 2);
+          ctx.lineTo(W - inset, H / 2);
           ctx.stroke();
-
-          // Top end
-          drawBasketballEnd(inset, true);
+          ctx.beginPath();
+          ctx.arc(W / 2, H / 2, 6 * T, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(W / 2, H / 2, 2 * T, 0, Math.PI * 2);
+          ctx.stroke();
         }
       }
 
