@@ -132,7 +132,45 @@ function makeTileCanvas(tileType, size = 512) {
   if (false) {
   }
   else if (tileType === 'active') {
-    for (let k = 1; k < 5; k++) { const y = i1 + (i2 - i1) * k / 5; ctx.beginPath(); ctx.moveTo(i1, y); ctx.lineTo(i2, y); ctx.stroke(); }
+    // Active: near-continuous "\" diagonal dashed grip. Dashes butt end-to-end
+    // along each diagonal line (measured ~0.87 of pitch, ~4px gap). White base
+    // so dashes multiply against the chosen court colour.
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, T, T);
+
+    // Rhombic lattice. Basis chosen so i*A and j*B land exactly on (T,0)/(0,T)
+    // => the T×T bitmap tiles seamlessly with zero seam bookkeeping.
+    const I = 4;                    // dashes per T along the "\" direction  (pitch = T·√2/(2·4) ≈ 0.177T)
+    const J = 6;                    // diagonal lines per T perpendicular    (spacing ≈ 0.118T)
+    const Ax = T / (2 * I), Ay = T / (2 * I);   // along-diagonal step  (1,1)
+    const Bx = T / (2 * J), By = -T / (2 * J);  // perpendicular step   (1,-1)
+
+    const alongPitch = Math.hypot(Ax, Ay);
+    const dLen = 0.874 * alongPitch;            // dash length (87% of pitch)
+    const ux = Math.SQRT1_2, uy = Math.SQRT1_2; // unit "\" direction
+    const hx = ux * dLen / 2, hy = uy * dLen / 2;
+
+    ctx.strokeStyle = '#8a8a8a';   // multiplies court colour to ~0.55× in dash areas
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = Math.max(2, T * 0.030);
+
+    // Iterate lattice points; margin of ±1 tile covers all dashes crossing edges.
+    const aMax = 2 * I + J, bMax = 2 * J + I;
+    ctx.beginPath();
+    for (let a = -J; a <= aMax; a++) {
+      for (let b = -I; b <= bMax; b++) {
+        const cx = a * Ax + b * Bx;
+        const cy = a * Ay + b * By;
+        if (cx < -dLen || cx > T + dLen || cy < -dLen || cy > T + dLen) continue;
+        ctx.moveTo(cx - hx, cy - hy);
+        ctx.lineTo(cx + hx, cy + hy);
+      }
+    }
+    ctx.stroke();
+
+    // thin tile seam
+    ctx.strokeStyle = '#565656';
+    ctx.lineWidth = Math.max(1, T * 0.006);
+    ctx.strokeRect(0, 0, T, T);
   }
   else if (tileType === 'complete') {
     // ── Compete Indoor: seamless 5×5 perforation-burst pattern ──────────────
@@ -954,7 +992,9 @@ export default function Court3D({
     if (s.courtMat.map) s.courtMat.map.dispose();
     s.courtMat.map = newTex; s.courtMat.needsUpdate = true;
     if (s.accentMeshes) s.accentMeshes.forEach(m => {
-      const t2 = makeTileTexture(tileType, width, length, s.renderer);
+      // Use each accent mesh's OWN size so its tiles stay 1ft × 1ft (not the court size)
+      const tw = m.userData.tileW || width, th = m.userData.tileH || length;
+      const t2 = makeTileTexture(tileType, tw, th, s.renderer);
       if (m.material.map) m.material.map.dispose();
       m.material.map = t2; m.material.needsUpdate = true;
     });
@@ -1135,7 +1175,9 @@ export default function Court3D({
         const baseHex = colors?.accent || '#9CA3AF';
         const mat = new THREE.MeshStandardMaterial({ map: acTex, color: new THREE.Color(tintFor(tileType, baseHex)), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
         const m = new THREE.Mesh(new THREE.PlaneGeometry(kW, kH), mat);
-        m.rotation.x = -Math.PI / 2; m.position.set(0, 0.383, zOff); scene.add(m); accentMeshes.push(m);
+        m.rotation.x = -Math.PI / 2; m.position.set(0, 0.383, zOff);
+        m.userData.tileW = kW; m.userData.tileH = kH;   // for correct 1ft repeat on tile change
+        scene.add(m); accentMeshes.push(m);
       };
       mkAccent(-(length / 2 - kH / 2));
       if (courtType === 'basketball_full') mkAccent(length / 2 - kH / 2);
@@ -1152,7 +1194,9 @@ export default function Court3D({
         const mat = new THREE.MeshStandardMaterial({ map: tex, color: new THREE.Color(tintFor(tileType, hex)), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
         const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
         m.rotation.x = -Math.PI / 2; m.position.set(x, 0.383, z);
-        m.userData.fixedColor = true; m.userData.baseColor = hex; scene.add(m); accentMeshes.push(m);
+        m.userData.fixedColor = true; m.userData.baseColor = hex;
+        m.userData.tileW = w; m.userData.tileH = h;     // for correct 1ft repeat on tile change
+        scene.add(m); accentMeshes.push(m);
       };
       // Kitchen (gray) — full playing width, 14ft deep, centered on net
       mkZone(playW, KITCHEN, 0, 0, '#9CA3AF');
