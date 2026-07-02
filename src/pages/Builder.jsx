@@ -297,9 +297,13 @@ function buildInitialDesign(sport) {
     d.sports.pickleball.enabled = false;
     d.width = 50; d.length = 47;               // Half Courts preset (auto-selected)
   } else if (sport === 'multi' || sport === 'multi_sport') {
+    // Combo court: two pickleball courts side by side + half basketball
+    // on one long side (client spec 55'×50')
     d.sports.basketball.enabled = true;
     d.sports.pickleball.enabled = true;
-    d.width = 50; d.length = 84;
+    d.sports.basketball.size = 'half';
+    d.sports.pickleball.size = 'dual';
+    d.width = 55; d.length = 50;
   }
   return d;
 }

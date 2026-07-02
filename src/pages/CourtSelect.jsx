@@ -11,6 +11,14 @@ import basketball from '/tiles/basketball.jpg'
 const OPTIONS = [
 
   {
+    key: 'multi',
+    title: 'Multi-Sport Game Courts',
+    desc: 'Basketball and pickleball combined on one surface — two pickleball courts side by side with a half-court basketball setup on the long side.',
+    img: basketball,
+    accent: '#E8600A',
+    size: '55 × 50 ft',
+  },
+  {
     key: 'basketball',
     title: 'Basketball Courts',
     desc: 'Half court or full court with regulation 12′×19′ key, 3-point arc and free-throw circle.',

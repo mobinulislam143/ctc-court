@@ -10,6 +10,18 @@ const TILE_SIZE = 12; // pixels per tile in preview
 const KEY_W_FT = 3444.9 / 304.8;
 const KEY_H_FT = 5710.6 / 304.8;
 
+// Pickleball court center offsets (ft from court center, along the width).
+// Dual and multi-sport layouts place two 20'-wide courts side by side when
+// the surface is wide enough; otherwise a single centered court.
+function pickleCenters(courtType, width) {
+  const twoCourts = (courtType || '').includes('dual') || (courtType || '').includes('multi_sport');
+  if (twoCourts && width >= 42) {
+    const gap = (width - 40) / 3;
+    return [-(10 + gap / 2), 10 + gap / 2];
+  }
+  return [0];
+}
+
 export default function CourtPreview({ 
   width, 
   length, 
@@ -198,31 +210,27 @@ export default function CourtPreview({
       }
 
       if (linesConfig.pickleball && courtType?.includes('pickleball')) {
-        // Court boundary
-        ctx.strokeRect(inset, inset, courtW, courtH);
-        
-        // Center line
-        ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, inset);
-        ctx.lineTo(canvas.width / 2, canvas.height - inset);
-        ctx.stroke();
-
-        // Kitchen (non-volley zone) lines
-        const kitchenDepth = 7 * TILE_SIZE;
-        ctx.beginPath();
-        ctx.moveTo(inset, canvas.height / 2 - kitchenDepth / 2);
-        ctx.lineTo(canvas.width - inset, canvas.height / 2 - kitchenDepth / 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(inset, canvas.height / 2 + kitchenDepth / 2);
-        ctx.lineTo(canvas.width - inset, canvas.height / 2 + kitchenDepth / 2);
-        ctx.stroke();
-
-        // Service line (center)
-        ctx.beginPath();
-        ctx.moveTo(inset, canvas.height / 2);
-        ctx.lineTo(canvas.width - inset, canvas.height / 2);
-        ctx.stroke();
+        // Regulation 20'×44' playing area per court, same geometry as the 3D
+        // view. Dual / multi-sport layouts draw two courts side by side.
+        const T = TILE_SIZE;
+        const playW = Math.min(20, width) * T;
+        const playH = Math.min(44, length) * T;
+        const py = (canvas.height - playH) / 2;
+        const nY = py + playH / 2;           // net / center line
+        pickleCenters(courtType, width).forEach(cxFt => {
+          const px = canvas.width / 2 + cxFt * T - playW / 2;
+          const mx = px + playW / 2;
+          // Outer playing boundary
+          ctx.strokeRect(px, py, playW, playH);
+          // Net center line
+          ctx.beginPath(); ctx.moveTo(px, nY); ctx.lineTo(px + playW, nY); ctx.stroke();
+          // Non-volley (kitchen) lines: 7' each side of net
+          ctx.beginPath(); ctx.moveTo(px, nY - 7 * T); ctx.lineTo(px + playW, nY - 7 * T); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(px, nY + 7 * T); ctx.lineTo(px + playW, nY + 7 * T); ctx.stroke();
+          // Center service line per half (not through the kitchen)
+          ctx.beginPath(); ctx.moveTo(mx, py); ctx.lineTo(mx, nY - 7 * T); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(mx, nY + 7 * T); ctx.lineTo(mx, py + playH); ctx.stroke();
+        });
       }
 
       if (linesConfig.multiSport && courtType === 'multi_sport') {

@@ -276,6 +276,18 @@ const isFullBasketball = ct => ct === 'basketball_full' || (ct || '').includes('
 const KEY_W_FT = 3444.9 / 304.8;
 const KEY_H_FT = 5710.6 / 304.8;
 
+// Pickleball court center offsets (ft from court center, along the width).
+// Dual and multi-sport layouts place two 20'-wide courts side by side when
+// the surface is wide enough; otherwise a single centered court.
+function pickleCenters(courtType, width) {
+  const twoCourts = (courtType || '').includes('dual') || (courtType || '').includes('multi_sport');
+  if (twoCourts && width >= 42) {
+    const gap = (width - 40) / 3;        // equal side margins + center gap
+    return [-(10 + gap / 2), 10 + gap / 2];
+  }
+  return [0];
+}
+
 // ── Lines canvas ──────────────────────────────────────────────────────────────
 function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   const T = 32;
@@ -360,21 +372,26 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
   }
 
   if (courtType && courtType.includes('pickleball')) {
-    // Regulation playing area: 20' wide × 44' long, centered in the surface
+    // Regulation playing area: 20' wide × 44' long per court. Dual / multi-sport
+    // layouts draw two courts side by side across the width.
     const playW = Math.min(20, width) * T;
     const playH = Math.min(44, length) * T;
-    const px = (W - playW) / 2, py = (H - playH) / 2;
+    const py = (H - playH) / 2;
     const nY = py + playH / 2;            // net / center line
-    // Outer playing boundary
-    ctx.strokeRect(px, py, playW, playH);
-    // Net center line (full width)
-    ctx.beginPath(); ctx.moveTo(px, nY); ctx.lineTo(px + playW, nY); ctx.stroke();
-    // Non-volley (kitchen) lines: 7' each side of net
-    ctx.beginPath(); ctx.moveTo(px, nY - 7 * T); ctx.lineTo(px + playW, nY - 7 * T); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(px, nY + 7 * T); ctx.lineTo(px + playW, nY + 7 * T); ctx.stroke();
-    // Center service line: from kitchen line to baseline on each half (not through kitchen)
-    ctx.beginPath(); ctx.moveTo(W / 2, py); ctx.lineTo(W / 2, nY - 7 * T); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W / 2, nY + 7 * T); ctx.lineTo(W / 2, py + playH); ctx.stroke();
+    pickleCenters(courtType, width).forEach(cxFt => {
+      const px = W / 2 + cxFt * T - playW / 2;
+      const mx = px + playW / 2;
+      // Outer playing boundary
+      ctx.strokeRect(px, py, playW, playH);
+      // Net center line (full width)
+      ctx.beginPath(); ctx.moveTo(px, nY); ctx.lineTo(px + playW, nY); ctx.stroke();
+      // Non-volley (kitchen) lines: 7' each side of net
+      ctx.beginPath(); ctx.moveTo(px, nY - 7 * T); ctx.lineTo(px + playW, nY - 7 * T); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px, nY + 7 * T); ctx.lineTo(px + playW, nY + 7 * T); ctx.stroke();
+      // Center service line: from kitchen line to baseline on each half (not through kitchen)
+      ctx.beginPath(); ctx.moveTo(mx, py); ctx.lineTo(mx, nY - 7 * T); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx, nY + 7 * T); ctx.lineTo(mx, py + playH); ctx.stroke();
+    });
   }
   return canvas;
 }
@@ -1163,8 +1180,10 @@ export default function Court3D({
       if (isFullBasketball(courtType)) mkAccent(length / 2 - kH / 2);
     }
 
-    // Pickleball zones: gray kitchen (center) + black service boxes (corners)
-    if (courtType && courtType.includes('pickleball')) {
+    // Pickleball zones: gray kitchen (center) + black service boxes (corners).
+    // Skipped on multi-sport combos so the surface stays clean under the
+    // basketball key — the pickleball courts are lines-only there.
+    if (courtType && courtType.includes('pickleball') && !courtType.includes('multi_sport')) {
       const playW = Math.min(20, width), playH = Math.min(44, length);
       const KITCHEN = 14;           // 7ft each side of net
       const halfBox = (playH - KITCHEN) / 2;   // 15ft service-box depth
@@ -1178,12 +1197,14 @@ export default function Court3D({
         m.userData.tileW = w; m.userData.tileH = h;     // for correct 1ft repeat on tile change
         scene.add(m); accentMeshes.push(m);
       };
-      // Kitchen (gray) — full playing width, 14ft deep, centered on net
-      mkZone(playW, KITCHEN, 0, 0, '#9CA3AF');
-      // Four service boxes (black) — 10ft wide × 15ft deep
-      [-boxZc, boxZc].forEach(z => {
-        mkZone(playW / 2, halfBox, -playW / 4, z, '#2b2b2b');
-        mkZone(playW / 2, halfBox, playW / 4, z, '#2b2b2b');
+      pickleCenters(courtType, width).forEach(cx => {
+        // Kitchen (gray) — full playing width, 14ft deep, centered on net
+        mkZone(playW, KITCHEN, cx, 0, '#9CA3AF');
+        // Four service boxes (black) — 10ft wide × 15ft deep
+        [-boxZc, boxZc].forEach(z => {
+          mkZone(playW / 2, halfBox, cx - playW / 4, z, '#2b2b2b');
+          mkZone(playW / 2, halfBox, cx + playW / 4, z, '#2b2b2b');
+        });
       });
     }
 
@@ -1208,33 +1229,38 @@ export default function Court3D({
       if (isFullBasketball(courtType) || bothEnds) nets.push(buildHoop(scene, (length / 2) + 3.8, -1, hoopOffset, v));
     }
 
-    // Pickleball net — realistic mesh with white top tape, black posts, center strap
+    // Pickleball net — realistic mesh with white top tape, black posts, center
+    // strap. One net per court (dual / multi-sport layouts get two).
     if (courtType && courtType.includes('pickleball')) {
       const playW = Math.min(20, width);
       const NET_H = 3;                 // 36" at posts
-      const postX = playW / 2 + 0.4;
+      const postOff = playW / 2 + 0.4;
       const matPost = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.35, metalness: 0.6 });
 
-      // Posts with rounded caps
-      [-postX, postX].forEach(x => {
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, NET_H + 0.3, 12), matPost);
-        p.position.set(x, (NET_H + 0.3) / 2, 0); p.castShadow = true; scene.add(p);
-        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), matPost);
-        cap.position.set(x, NET_H + 0.3, 0); scene.add(cap);
-      });
-
-      // Net mesh with fine-grid texture
+      // Shared fine-grid net texture
       const pnCanvas = makePickleNetCanvas();
       const pnTex = new THREE.CanvasTexture(pnCanvas);
       pnTex.wrapS = THREE.RepeatWrapping; pnTex.repeat.set(1, 1);
       pnTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
       const matNet = new THREE.MeshBasicMaterial({ map: pnTex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.02, depthWrite: false });
-      const pbNet = new THREE.Mesh(new THREE.PlaneGeometry(playW, NET_H), matNet);
-      pbNet.position.set(0, NET_H / 2, 0); scene.add(pbNet);
 
-      // Center vertical strap (white)
-      const strap = new THREE.Mesh(new THREE.PlaneGeometry(0.12, NET_H), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
-      strap.position.set(0, NET_H / 2, 0.01); scene.add(strap);
+      pickleCenters(courtType, width).forEach(cx => {
+        // Posts with rounded caps
+        [cx - postOff, cx + postOff].forEach(x => {
+          const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, NET_H + 0.3, 12), matPost);
+          p.position.set(x, (NET_H + 0.3) / 2, 0); p.castShadow = true; scene.add(p);
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), matPost);
+          cap.position.set(x, NET_H + 0.3, 0); scene.add(cap);
+        });
+
+        // Net mesh
+        const pbNet = new THREE.Mesh(new THREE.PlaneGeometry(playW, NET_H), matNet);
+        pbNet.position.set(cx, NET_H / 2, 0); scene.add(pbNet);
+
+        // Center vertical strap (white)
+        const strap = new THREE.Mesh(new THREE.PlaneGeometry(0.12, NET_H), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+        strap.position.set(cx, NET_H / 2, 0.01); scene.add(strap);
+      });
     }
 
     // Net protect
