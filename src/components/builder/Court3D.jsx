@@ -298,10 +298,12 @@ function drawLinesCanvas(width, length, colors, linesConfig, courtType) {
     const ftR = kW / 2;                 // dome spans the key width exactly
     const baskFromBase = 5.25 * T;      // basket center distance from baseline
 
-    // 3-point geometry — 19'9" radius arc with straight corner lines 19' either
-    // side of center (reference: the verticals run straight up from the baseline
-    // ~10'6" before curving into the arc, keeping the bottom squared-off).
-    const tpR = Math.min(19.75 * T, W / 2 - 0.5 * T);
+    // 3-point geometry — the arc is tangent to the free-throw dome at the apex,
+    // so the two lines MERGE into one at the top and split apart off-center
+    // (reference look). Straight vertical corner lines run from the baseline up
+    // into the arc, keeping the bottom squared-off.
+    const domeApex = kH + ftR;                                  // px from baseline
+    const tpR = Math.min(domeApex - baskFromBase, W / 2 - 0.5 * T);
     const cornerD = Math.min(19 * T, tpR - 0.35 * T);
     const joinFromBase = baskFromBase + Math.sqrt(Math.max(0, tpR * tpR - cornerD * cornerD));
 
@@ -789,7 +791,7 @@ function buildDimensionAnnotations(scene, width, length, courtType, metric) {
     const kH = Math.min(KEY_H_FT, L - 2);
     const z0 = -L / 2;  // baseline Z
     const ftR = kW / 2; // free-throw dome radius (spans the key width)
-    const tpR = Math.min(19.75, W / 2 - 0.5); // 3-point radius (matches painted lines)
+    const tpR = Math.min(kH + kW / 2 - 5.25, W / 2 - 0.5); // 3-point radius (matches painted lines)
 
     // Key width at top of paint
     makeDimAnnotation(g,

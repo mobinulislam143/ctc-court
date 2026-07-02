@@ -127,11 +127,12 @@ export default function CourtPreview({
         const ftRadius = keyW / 2;                       // dome spans key width
         const baskFromBase = 5.25 * T;                   // rim center from baseline
 
-        // Three-point geometry — 19'9" radius arc with straight corner lines 19'
-        // either side of center, same as the 3D view. The verticals run straight
-        // up from the baseline and merge into the arc (~10'6" up), keeping the
-        // bottom squared-off like the reference.
-        const tpR = Math.min(19.75 * T, playW / 2 - 0.5 * T);
+        // Three-point geometry — same as the 3D view: the arc is tangent to the
+        // free-throw dome at the apex, so the two lines MERGE into one at the top
+        // and split apart off-center. Straight vertical corner lines run from the
+        // baseline into the arc.
+        const domeApex = keyH + ftRadius;                       // px from baseline
+        const tpR = Math.min(domeApex - baskFromBase, playW / 2 - 0.5 * T);
         const cornerD = Math.min(19 * T, tpR - 0.35 * T);
         const joinFromBase = baskFromBase + Math.sqrt(Math.max(0, tpR * tpR - cornerD * cornerD));
 
