@@ -15,19 +15,19 @@ function makeTileCanvas(tileType, size = 512) {
   const T = size, g = Math.max(4, Math.round(T * 0.055));
   const cx = T/2, cy = T/2, i1 = g, i2 = T - g;
 
-  // ── game_outdoor: Star-lattice tile (grayscale → multiplies with court color) ──
-  if (tileType === 'game_outdoor') {
+  // ── game_outdoor / pickleball_performance: Star-lattice tile ──────────────────
+  if (tileType === 'game_outdoor' || tileType === 'pickleball_performance') {
     const CELLS = 8;                          // 8×8 cells per 1ft tile
-    const PADDING = Math.round(T * 0.014);
+    const PADDING = Math.round(T * 0.006);    // thin gap to the tile edge
     const inner = T - PADDING * 2;
     const cell  = inner / CELLS;
     const RIB   = Math.max(2, cell * 0.14);   // rib thickness
 
-    // Recessed triangular voids (darker) — multiplies to a darker shade of court color
+    // Recessed triangular voids (darker)
     ctx.fillStyle = '#6f6f6f';
     ctx.fillRect(0, 0, T, T);
 
-    // Raised ribs (lighter) — border + X + center cross forms the 8-triangle star
+    // Raised ribs (lighter)
     ctx.lineCap  = 'square';
     ctx.lineJoin = 'miter';
     ctx.strokeStyle = '#d6d6d6';
@@ -49,9 +49,9 @@ function makeTileCanvas(tileType, size = 512) {
       ctx.beginPath(); ctx.moveTo(p, PADDING); ctx.lineTo(p, PADDING + inner); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PADDING, p); ctx.lineTo(PADDING + inner, p); ctx.stroke();
     }
-    // Tile seam (slightly darker) around the 1ft border
-    ctx.strokeStyle = '#565656';
-    ctx.lineWidth   = Math.max(2, T * 0.01);
+    // Tile seam around the 1ft border
+    ctx.strokeStyle = '#5f5f5f';
+    ctx.lineWidth   = Math.max(1, T * 0.006);
     ctx.strokeRect(0, 0, T, T);
 
     return c;
@@ -62,23 +62,71 @@ function makeTileCanvas(tileType, size = 512) {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(i1,i1,i2-i1,i2-i1);
   ctx.strokeStyle = '#484848';
   ctx.lineWidth = Math.max(2, g*0.9); ctx.lineCap = 'round';
+  
   if (false) { 
-  } else if (tileType === 'active') {
+  } 
+  else if (tileType === 'active') {
     for(let k=1;k<5;k++){const y=i1+(i2-i1)*k/5;ctx.beginPath();ctx.moveTo(i1,y);ctx.lineTo(i2,y);ctx.stroke();}
-  } else if (tileType === 'boost') {
+  }
+   else if (tileType === 'boost') {
     const st=(i2-i1)/3;
     for(let k=1;k<3;k++){const p=i1+st*k;ctx.beginPath();ctx.moveTo(p,i1);ctx.lineTo(p,i2);ctx.stroke();ctx.beginPath();ctx.moveTo(i1,p);ctx.lineTo(i2,p);ctx.stroke();}
     ctx.fillStyle='#484848';
     [i1+st,i1+st*2].forEach(px=>[i1+st,i1+st*2].forEach(py=>{ctx.beginPath();ctx.arc(px,py,T*0.045,0,Math.PI*2);ctx.fill();}));
-  } else if (tileType === 'complete') {
-    for(let k=0;k<6;k++){const a=(k/6)*Math.PI*2-Math.PI/6;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*(T/2-g),cy+Math.sin(a)*(T/2-g));ctx.stroke();}
-    ctx.fillStyle='#484848';ctx.beginPath();ctx.arc(cx,cy,T*0.1,0,Math.PI*2);ctx.fill();
+  }
+  
+  else if (tileType === 'complete') {
+    // ── Compete Indoor: 5x5 Perforation Burst Pattern matching image ───────
+    ctx.fillStyle = '#b2bfc4'; 
+    ctx.fillRect(0, 0, T, T);
+
+    ctx.strokeStyle = '#5a6366'; // Burst slots color
+    ctx.lineCap = 'square';      
+    
+    const CELLS = 5;             
+    const cell = T / CELLS;
+    
+    ctx.lineWidth = Math.max(2, T * 0.012); 
+    const rStart = cell * 0.18;   
+    const rEnd = cell * 0.38;     
+
+    for (let row = 0; row <= CELLS; row++) {
+      for (let col = 0; col <= CELLS; col++) {
+        const bx = col * cell;
+        const by = row * cell;
+
+        for (let k = 0; k < 8; k++) { 
+          const ang = (k / 8) * Math.PI * 2;
+          const cos = Math.cos(ang);
+          const sin = Math.sin(ang);
+
+          ctx.beginPath();
+          ctx.moveTo(bx + cos * rStart, by + sin * rStart);
+          ctx.lineTo(bx + cos * rEnd, by + sin * rEnd);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ── Outer Tile Border ───────────────────────────────────────────────────
+    // Dark inner frame to represent physical tile edges/seams
+    ctx.strokeStyle = '#4a5356'; 
+    ctx.lineWidth = Math.max(2, T * 0.012);
+    ctx.strokeRect(0, 0, T, T);
+
+    // Subtle highlighted inner lip for depth/3D effect
+    ctx.strokeStyle = '#c4d1d6';
+    ctx.lineWidth = Math.max(1, T * 0.004);
+    ctx.strokeRect(T * 0.006, T * 0.006, T - (T * 0.012), T - (T * 0.012));
+
   } else if (tileType === 'wood_grain') {
     for(let k=1;k<4;k++){const y=i1+(i2-i1)*k/4;ctx.beginPath();ctx.moveTo(i1,y);ctx.lineTo(i2,y);ctx.stroke();}
     ctx.setLineDash([T*0.2,T*0.8]);ctx.beginPath();ctx.moveTo(cx+T*0.18,i1);ctx.lineTo(cx+T*0.18,i2);ctx.stroke();ctx.setLineDash([]);
   }
+  
   return c;
 }
+
 
 function makeTileTexture(tileType, cW, cH, renderer) {
   const canvas = makeTileCanvas(tileType, 512);

@@ -32,13 +32,22 @@ const SWATCHES = [
   { name: 'Light Blue',   hex: '#90CAF9' },
 ];
 
-const TILE_OPTIONS = [
-  { id: 'game_outdoor', label: 'Game Outdoor', img: '/tiles/game-outdoor.webp', desc: 'Star-lattice pattern' },
-  { id: 'active',       label: 'Active',       img: '/tiles/active.webp',       desc: 'Ribbed grip grooves' },
-  { id: 'boost',        label: 'Boost',        img: '/tiles/boost.webp',        desc: 'Open-mesh design'   },
-  { id: 'complete',     label: 'Complete',     img: '/tiles/complete.webp',     desc: 'Asterisk drain'     },
-  { id: 'wood_grain',   label: 'Wood Grain',   img: '/tiles/wood-grain.webp',   desc: 'Maple look indoor'  },
-];
+// Tiles available per environment. `id` is the value passed to the 3D preview.
+const TILE_GROUPS = {
+  outdoor: [
+    { id: 'game_outdoor',           label: 'Game Outdoor',           img: '/tiles/game-outdoor.webp', desc: 'Star-lattice pattern'   },
+    { id: 'pickleball_performance', label: 'Pickleball Performance', img: '/tiles/picable.jpg',       desc: 'Cushioned PB surface'   },
+    { id: 'boost',                  label: 'Boost',                  img: '/tiles/boost.webp',        desc: 'Open-mesh design'       },
+    { id: 'active',                 label: 'Active',                 img: '/tiles/active.webp',       desc: 'Ribbed grip grooves'    },
+  ],
+  indoor: [
+    { id: 'complete',   label: 'Compete Indoor', img: '/tiles/complete.webp',   desc: 'Court-tough indoor tile' },
+    { id: 'wood_grain', label: 'Wood-Grain',     img: '/tiles/wood-grain.webp', desc: 'Maple look indoor'       },
+  ],
+};
+
+// Flat lookup so any saved tileType can resolve its label/image regardless of environment.
+const ALL_TILES = [...TILE_GROUPS.outdoor, ...TILE_GROUPS.indoor];
 
 const HOOP_OPTIONS = [
   { id: 'megaslam60', label: 'MegaSlam 60', img: '/tiles/megaslam60.png', desc: '60" Pro glass board' },
@@ -486,42 +495,73 @@ export default function Builder() {
           {/* SURFACE */}
           <Panel title="Surface" defaultOpen>
             <div className="space-y-3">
+              {/* Better Experience recommendation — nudges toward Pickleball Performance
+                  tiles whenever a pickleball court is being built with another tile. */}
+              {pickle.enabled && design.tileType !== 'pickleball_performance' && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Info className="h-4 w-4 text-[#E85D04] flex-shrink-0" />
+                    <p className="text-sm font-bold text-[#E85D04]">Better Experience</p>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-snug">
+                    For recreational Pickleball play, our Pickleball Performance tiles are
+                    strongly recommended for consistent ball bounce.
+                  </p>
+                  <button
+                    onClick={() => setDesign(d => ({ ...d, surface: 'outdoor', tileType: 'pickleball_performance' }))}
+                    className="w-full bg-[#2472B3] hover:bg-[#1e63a0] text-white text-sm font-semibold rounded-lg py-2 transition-colors"
+                  >
+                    Set Pickleball Performance
+                  </button>
+                </div>
+              )}
+
+              {/* Environment: Outdoor / Indoor */}
               <select
                 value={design.surface}
-                onChange={e => setDesign(d => ({ ...d, surface: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2472B3]"
+                onChange={e => {
+                  const surface = e.target.value;
+                  // Reset the tile to the "Select Tile" placeholder when the
+                  // environment changes so only valid tiles can be picked.
+                  setDesign(d => ({ ...d, surface, tileType: '' }));
+                }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2472B3]"
               >
                 <option value="outdoor">Outdoor</option>
                 <option value="indoor">Indoor</option>
-                <option value="garage">Garage</option>
               </select>
 
-              <p className="text-xs text-gray-500 font-medium">Tile Type</p>
-              <div className="grid grid-cols-2 gap-2">
-                {TILE_OPTIONS.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setDesign(d => ({ ...d, tileType: t.id }))}
-                    className={cn(
-                      'relative rounded-xl border-2 overflow-hidden transition-all text-left',
-                      design.tileType === t.id
-                        ? 'border-[#2472B3] shadow-md'
-                        : 'border-gray-200 hover:border-[#2472B3]/50'
-                    )}
-                  >
-                    <img src={t.img} alt={t.label} className="w-full h-14 object-cover" />
-                    <div className="px-2 py-1.5">
-                      <p className="text-xs font-semibold text-gray-700 leading-tight">{t.label}</p>
-                      <p className="text-[10px] text-gray-400 leading-tight">{t.desc}</p>
-                    </div>
-                    {design.tileType === t.id && (
-                      <span className="absolute top-1 right-1 w-5 h-5 bg-[#2472B3] rounded-full flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white" />
-                      </span>
-                    )}
-                  </button>
+              {/* Tile selection — options depend on the chosen environment */}
+              <select
+                value={design.tileType}
+                onChange={e => setDesign(d => ({ ...d, tileType: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2472B3]"
+              >
+                <option value="">Select Tile</option>
+                {(TILE_GROUPS[design.surface] || []).map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
-              </div>
+              </select>
+
+              {/* Demo image for the selected tile */}
+              {(() => {
+                const tile = ALL_TILES.find(t => t.id === design.tileType);
+                if (!tile) return null;
+                return (
+                  <div className="relative rounded-xl border-2 border-[#2472B3] overflow-hidden shadow-sm">
+                    <img src={tile.img} alt={tile.label} className="w-full h-36 object-cover" />
+                    <div className="flex items-center justify-between px-3 py-2 bg-white">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700 leading-tight">{tile.label}</p>
+                        <p className="text-[11px] text-gray-400 leading-tight">{tile.desc}</p>
+                      </div>
+                      <span className="w-5 h-5 rounded-full bg-[#2472B3] flex items-center justify-center flex-shrink-0">
+                        <Info className="h-3 w-3 text-white" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </Panel>
 
